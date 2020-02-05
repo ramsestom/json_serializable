@@ -28,56 +28,89 @@ abstract class DecodeHelper implements HelperCore {
     assert(_buffer.isEmpty);
 
     final mapType = config.anyMap ? 'Map' : 'Map<String, dynamic>';
-    _buffer.write('$targetClassReference '
-        '${prefix}FromJson${genericClassArgumentsImpl(true)}'
-        '($mapType json) {\n');
+    
+    _buffer.write('void '
+         '${prefix}UpdateFromJson${genericClassArgumentsImpl(true)}'
+         '($targetClassReference val, $mapType json) {\n');
 
-    String deserializeFun(String paramOrFieldName,
-            {ParameterElement ctorParam}) =>
-        _deserializeForField(accessibleFields[paramOrFieldName],
-            ctorParam: ctorParam);
+    String deserializeFun(String paramOrFieldName, {ParameterElement ctorParam}) =>
+        _deserializeForField(accessibleFields[paramOrFieldName], ctorParam: ctorParam);
 
     _ConstructorData data;
     if (config.checked) {
-      final classLiteral = escapeDartString(element.name);
-
-      _buffer.write('''
-  return \$checkedNew(
-    $classLiteral,
-    json,
-    () {\n''');
 
       data = _writeConstructorInvocation(
-          element,
-          accessibleFields.keys,
-          accessibleFields.values
-              .where((fe) => !fe.isFinal)
-              .map((fe) => fe.name)
-              .toList(),
-          unavailableReasons,
-          deserializeFun);
+                element,
+                accessibleFields.keys,
+                accessibleFields.values
+                    .where((fe) => !fe.isFinal)
+                    .map((fe) => fe.name)
+                    .toList(),
+                unavailableReasons,
+                deserializeFun);
 
       _writeChecks(
-          6,
-          config,
-          accessibleFields.values
-              .where((fe) => data.usedCtorParamsAndFields.contains(fe.name)));
-      _buffer.write('''
-    final val = ${data.content};''');
+              6,
+              config,
+              accessibleFields.values
+                  .where((fe) => data.usedCtorParamsAndFields.contains(fe.name)));  
 
       for (final field in data.fieldsToSet) {
         _buffer.writeln();
         final safeName = safeNameAccess(accessibleFields[field]);
-        _buffer.write('''
-    \$checkedConvert(json, $safeName, (v) => ''');
+        _buffer.write('\$checkedConvert(json, $safeName, (v) => ');
         _buffer.write('val.$field = ');
-        _buffer.write(_deserializeForField(accessibleFields[field],
-            checkedProperty: true));
+        _buffer.write(_deserializeForField(accessibleFields[field], checkedProperty: true));
         _buffer.write(');');
       }
+    } 
+    else {
 
-      _buffer.write('''\n    return val;
-  }''');
+      data = _writeConstructorInvocation(
+            element,
+            accessibleFields.keys,
+            accessibleFields.values
+                .where((fe) => !fe.isFinal)
+                .map((fe) => fe.name)
+                .toList(),
+            unavailableReasons,
+            deserializeFun);
+
+        _writeChecks(
+            2,
+            config,
+            accessibleFields.values
+                .where((fe) => data.usedCtorParamsAndFields.contains(fe.name)));
+      
+      for (final field in data.fieldsToSet) {
+        _buffer.writeln();
+        _buffer.write('val.$field = ');
+        _buffer.write(deserializeFun(field));
+        _buffer.write(';');
+      }
+    }
+    _buffer.writeln('\n}');
+    _buffer.writeln();
+
+
+    //
+    _buffer.write('$targetClassReference '
+         '${prefix}FromJson${genericClassArgumentsImpl(true)}'
+         '($mapType json) {\n');
+
+    if (config.checked) {
+      final classLiteral = escapeDartString(element.name);
+
+      _buffer.write('''
+        return \$checkedNew(
+          $classLiteral,
+          json,
+          () {\n''');
+
+      _buffer.write('final val = ${data.content};\n');  
+      _buffer.write('${prefix}UpdateFromJson${genericClassArgumentsImpl(true)}(val, json);\n');  
+      _buffer.write('return val;\n');
+      _buffer.write('''}''');
 
       final fieldKeyMap = Map.fromEntries(data.usedCtorParamsAndFields
           .map((k) => MapEntry(k, nameAccess(accessibleFields[k])))
@@ -92,38 +125,19 @@ abstract class DecodeHelper implements HelperCore {
       }
 
       _buffer.write(fieldKeyMapArg);
-
-      _buffer.write(')');
-    } else {
-      data = _writeConstructorInvocation(
-          element,
-          accessibleFields.keys,
-          accessibleFields.values
-              .where((fe) => !fe.isFinal)
-              .map((fe) => fe.name)
-              .toList(),
-          unavailableReasons,
-          deserializeFun);
-
-      _writeChecks(
-          2,
-          config,
-          accessibleFields.values
-              .where((fe) => data.usedCtorParamsAndFields.contains(fe.name)));
-
-      _buffer.write('''
-  return ${data.content}''');
-      for (final field in data.fieldsToSet) {
-        _buffer.writeln();
-        _buffer.write('    ..$field = ');
-        _buffer.write(deserializeFun(field));
-      }
+      _buffer.write(');\n');
+    } 
+    else {
+        _buffer.write('final val = ${data.content};\n');  
+        _buffer.write('${prefix}UpdateFromJson${genericClassArgumentsImpl(true)}(val, json);\n');  
+        _buffer.write('return val;\n');
     }
-    _buffer.writeln(';\n}');
+
+    _buffer.writeln('}');
     _buffer.writeln();
 
     return CreateFactoryResult(
-        _buffer.toString(), data.usedCtorParamsAndFields);
+      _buffer.toString(), data.usedCtorParamsAndFields);
   }
 
   void _writeChecks(int indent, JsonSerializable classAnnotation,

@@ -26,7 +26,9 @@ class JsonHelper extends TypeHelper<TypeHelperContextWithConfig> {
       return null;
     }
 
-    if (context.config.explicitToJson) {
+    final _explicitToJson = context.methodConfig?.explicitToJson ?? context.config.explicitToJson;
+    
+    if (_explicitToJson) {
       return '$expression${context.nullable ? '?' : ''}.toJson()';
     }
     return expression;

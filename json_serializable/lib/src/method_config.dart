@@ -1,0 +1,5 @@
+class MethodConfig {
+
+  bool explicitToJson;
+
+}

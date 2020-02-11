@@ -180,7 +180,7 @@ abstract class DecodeHelper implements HelperCore {
     checkedProperty ??= false;
     final jsonKeyName = safeNameAccess(field);
     final targetType = ctorParam?.type ?? field.type;
-    final contextHelper = getHelperContext(field);
+    final contextHelper = getHelperContext(field, null);
 
     String value;
     try {

@@ -5,6 +5,7 @@
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:json_annotation/json_annotation.dart';
+import 'package:json_serializable/src/method_config.dart';
 import 'package:meta/meta.dart';
 import 'package:source_gen/source_gen.dart';
 
@@ -50,8 +51,8 @@ abstract class HelperCore {
   JsonKey jsonKeyFor(FieldElement field) => jsonKeyForField(field, config);
 
   @protected
-  TypeHelperCtx getHelperContext(FieldElement field) =>
-      typeHelperContext(this, field, jsonKeyFor(field));
+  TypeHelperCtx getHelperContext(FieldElement field, MethodConfig methodconf) =>
+      typeHelperContext(this, field, jsonKeyFor(field), methodconf);
 }
 
 InvalidGenerationSourceError createInvalidGenerationError(

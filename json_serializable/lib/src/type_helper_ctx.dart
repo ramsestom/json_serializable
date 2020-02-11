@@ -6,6 +6,7 @@ import 'package:analyzer/dart/constant/value.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:json_annotation/json_annotation.dart';
+import 'package:json_serializable/src/method_config.dart';
 
 import 'helper_core.dart';
 import 'type_helper.dart';
@@ -13,14 +14,14 @@ import 'type_helpers/convert_helper.dart';
 import 'unsupported_type_error.dart';
 import 'utils.dart';
 
-TypeHelperCtx typeHelperContext(
-        HelperCore helperCore, FieldElement fieldElement, JsonKey key) =>
-    TypeHelperCtx._(helperCore, fieldElement, key);
+TypeHelperCtx typeHelperContext(HelperCore helperCore, FieldElement fieldElement, JsonKey key, MethodConfig methodconf) =>
+    TypeHelperCtx._(helperCore, fieldElement, key, methodconf);
 
 class TypeHelperCtx
     implements TypeHelperContextWithConfig, TypeHelperContextWithConvert {
   final HelperCore _helperCore;
   final JsonKey _key;
+  final MethodConfig _methodconf;
 
   @override
   final FieldElement fieldElement;
@@ -34,7 +35,9 @@ class TypeHelperCtx
   @override
   JsonSerializable get config => _helperCore.config;
 
-  TypeHelperCtx._(this._helperCore, this.fieldElement, this._key);
+  MethodConfig get methodConfig => _methodconf;
+
+  TypeHelperCtx._(this._helperCore, this.fieldElement, this._key, this._methodconf);
 
   @override
   ConvertData get serializeConvertData => _pairFromContext?.toJson;
@@ -99,6 +102,8 @@ class _ConvertPair {
 ConvertData _convertData(DartObject obj, FieldElement element, bool isFrom) {
   final paramName = isFrom ? 'fromJson' : 'toJson';
   final objectValue = obj.getField(paramName);
+
+  //print("$paramName \n $obj \n $element \n $objectValue \n\n");
 
   if (objectValue.isNull) {
     return null;

@@ -30,7 +30,7 @@ abstract class DecodeHelper implements HelperCore {
     final mapType = config.anyMap ? 'Map' : 'Map<String, dynamic>';
     
     _buffer.write('void '
-         '${prefix}UpdateFromJson${genericClassArgumentsImpl(true)}'
+         '${prefix}UpdateFromJson${genericClassArgumentsImpl(true)}' 
          '($targetClassReference val, $mapType json) {\n');
 
     String deserializeFun(String paramOrFieldName, {ParameterElement ctorParam}) =>
@@ -59,8 +59,11 @@ abstract class DecodeHelper implements HelperCore {
         _buffer.writeln();
         final safeName = safeNameAccess(accessibleFields[field]);
         _buffer.write('\$checkedConvert(json, $safeName, (v) => ');
+        _buffer.write('if (json.containsKey($safeName)) {');
         _buffer.write('val.$field = ');
         _buffer.write(_deserializeForField(accessibleFields[field], checkedProperty: true));
+        _buffer.write(';');
+         _buffer.write('}');
         _buffer.write(');');
       }
     } 
@@ -83,10 +86,13 @@ abstract class DecodeHelper implements HelperCore {
                 .where((fe) => data.usedCtorParamsAndFields.contains(fe.name)));
       
       for (final field in data.fieldsToSet) {
+        final jsonKeyName = safeNameAccess(accessibleFields[field]);
         _buffer.writeln();
+        _buffer.write('if (json.containsKey($jsonKeyName)) {');
         _buffer.write('val.$field = ');
         _buffer.write(deserializeFun(field));
         _buffer.write(';');
+        _buffer.write('}');
       }
     }
     _buffer.writeln('\n}');
@@ -95,7 +101,7 @@ abstract class DecodeHelper implements HelperCore {
 
     //
     _buffer.write('$targetClassReference '
-         '${prefix}FromJson${genericClassArgumentsImpl(true)}'
+         '${prefix}FromJson${genericClassArgumentsImpl(true)}' 
          '($mapType json) {\n');
 
     if (config.checked) {
@@ -108,7 +114,7 @@ abstract class DecodeHelper implements HelperCore {
           () {\n''');
 
       _buffer.write('final val = ${data.content};\n');  
-      _buffer.write('${prefix}UpdateFromJson${genericClassArgumentsImpl(true)}(val, json);\n');  
+      _buffer.write('${prefix}UpdateFromJson${genericClassArgumentsImpl(false)}(val, json);\n');   
       _buffer.write('return val;\n');
       _buffer.write('''}''');
 
@@ -129,7 +135,7 @@ abstract class DecodeHelper implements HelperCore {
     } 
     else {
         _buffer.write('final val = ${data.content};\n');  
-        _buffer.write('${prefix}UpdateFromJson${genericClassArgumentsImpl(true)}(val, json);\n');  
+        _buffer.write('${prefix}UpdateFromJson${genericClassArgumentsImpl(false)}(val, json);\n');  
         _buffer.write('return val;\n');
     }
 

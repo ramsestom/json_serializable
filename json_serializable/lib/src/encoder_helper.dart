@@ -19,7 +19,7 @@ abstract class EncodeHelper implements HelperCore {
 
     final buffer = StringBuffer();
 
-    final functionName = '${prefix}ToJson${genericClassArgumentsImpl(true)}';
+    final functionName = '${prefix}ToJson${genericClassArgumentsImpl(true)}'; 
     buffer.write('Map<String, dynamic> $functionName'
         '($targetClassReference $_toJsonParamName, {bool explicitToJson=${config.explicitToJson}}) ');
 

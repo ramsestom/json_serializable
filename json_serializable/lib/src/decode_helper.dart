@@ -137,11 +137,11 @@ abstract class DecodeHelper implements HelperCore {
       ..write('{')
       ..writeAll(fromJsonLines.take(fromJsonLines.length - 1))
       ..write(fromJsonLines.last)
-      ..write('}');
+      ..write('}')
     
 
     ///Generate fromJson method
-     buffer.write('$targetClassReference '
+      ..write('$targetClassReference '
         '${prefix}FromJson${genericClassArgumentsImpl(true)}'
         '($mapType json');
 
@@ -158,9 +158,7 @@ abstract class DecodeHelper implements HelperCore {
       }
     }
 
-    buffer.write(')');
-    
-    buffer
+    buffer..write(')')
       ..write('{\n')
       ..write(' final val = ${data.content};\n')
       ..write(' ${prefix}UpdateFromJson${genericClassArgumentsImpl(false)}(val, json');

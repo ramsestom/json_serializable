@@ -6,10 +6,10 @@ import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/nullability_suffix.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:source_helper/source_helper.dart';
-import 'method_config.dart';
 
 import 'constants.dart';
 import 'helper_core.dart';
+import 'method_config.dart';
 import 'type_helpers/generic_factory_helper.dart';
 import 'type_helpers/json_converter_helper.dart';
 import 'unsupported_type_error.dart';
@@ -53,28 +53,28 @@ abstract class EncodeHelper implements HelperCore {
   }
 
   void _writeToJsonSimple(StringBuffer buffer, Iterable<FieldElement> fields) {
-    buffer.writeln('{');
-    buffer.writeln('    if (explicitToJson) {');
-    buffer.writeln('        final $generatedLocalVarName = <String, dynamic>{');
-    buffer.writeAll(fields.map((field) {
-      final access = _fieldAccess(field);
-      final value = '${safeNameAccess(field)}: ${_serializeField(field, access, true)}';
-      return '            $value,\n';
-    }));
-    buffer.writeln('        };');
-    buffer.writeln('        return $generatedLocalVarName;');
-    buffer.writeln('    }');
-    buffer.writeln('    else {');
-    buffer.writeln('        final $generatedLocalVarName = <String, dynamic>{');
-    buffer.writeAll(fields.map((field) {
-      final access = _fieldAccess(field);
-      final value = '${safeNameAccess(field)}: ${_serializeField(field, access, false)}';
-      return '            $value,\n';
-    }));
-    buffer.writeln('        };');
-    buffer.writeln('        return $generatedLocalVarName;');
-    buffer.writeln('    }');
-    buffer.writeln('}');
+    buffer..writeln('{')
+      ..writeln('    if (explicitToJson) {')
+      ..writeln('        final $generatedLocalVarName = <String, dynamic>{')
+      ..writeAll(fields.map((field) {
+        final access = _fieldAccess(field);
+        final value = '${safeNameAccess(field)}: ${_serializeField(field, access, true)}';
+        return '            $value,\n';
+      }))
+      ..writeln('        };')
+      ..writeln('        return $generatedLocalVarName;')
+      ..writeln('    }')
+      ..writeln('    else {')
+      ..writeln('        final $generatedLocalVarName = <String, dynamic>{')
+      ..writeAll(fields.map((field) {
+        final access = _fieldAccess(field);
+        final value = '${safeNameAccess(field)}: ${_serializeField(field, access, false)}';
+        return '            $value,\n';
+      }))
+      ..writeln('        };')
+      ..writeln('        return $generatedLocalVarName;')
+      ..writeln('    }')
+      ..writeln('}');
   }
 
   static const _toJsonParamName = 'instance';
@@ -85,9 +85,9 @@ abstract class EncodeHelper implements HelperCore {
   ) {
     buffer
       ..writeln('{')
-      ..writeln('    final $generatedLocalVarName = <String, dynamic>{');
-    buffer.writeln('    if (explicitToJson) {');
-    buffer.writeln('        final $generatedLocalVarName = <String, dynamic>{');
+      ..writeln('    final $generatedLocalVarName = <String, dynamic>{')
+      ..writeln('    if (explicitToJson) {')
+      ..writeln('        final $generatedLocalVarName = <String, dynamic>{');
 
     // Note that the map literal is left open above. As long as target fields
     // don't need to be intercepted by the `only if null` logic, write them
@@ -115,12 +115,12 @@ abstract class EncodeHelper implements HelperCore {
       } else {
         if (directWrite) {
           // close the still-open map literal
-          buffer.writeln('        };');
-          buffer.writeln();
+          buffer..writeln('        };')
+            ..writeln()
 
             // write the helper to be used by all following null-excluding
             // fields
-          buffer..writeln('''
+            ..writeln('''
               void $toJsonMapHelperName(String key, dynamic value) {
                 if (value != null) {
                   $generatedLocalVarName[key] = value;
@@ -132,10 +132,10 @@ abstract class EncodeHelper implements HelperCore {
         buffer.writeln('        $toJsonMapHelperName($safeJsonKeyString, $expression);');
       }
     }
-    buffer.writeln('        return $generatedLocalVarName;');
-    buffer.writeln('    }');
-    buffer.writeln('    else {');
-    buffer.writeln('        final $generatedLocalVarName = <String, dynamic>{');
+    buffer..writeln('        return $generatedLocalVarName;')
+      ..writeln('    }')
+      ..writeln('    else {')
+      ..writeln('        final $generatedLocalVarName = <String, dynamic>{');
     for (final field in fields) {
       var safeFieldAccess = _fieldAccess(field);
       final safeJsonKeyString = safeNameAccess(field);
@@ -151,9 +151,9 @@ abstract class EncodeHelper implements HelperCore {
         }
       } else {
         if (directWrite) {
-          buffer.writeln('        };');
-          buffer.writeln();
-          buffer.writeln('''
+          buffer..writeln('        };')
+            ..writeln()
+            ..writeln('''
         void $toJsonMapHelperName(String key, dynamic value) {
           if (value != null) {
             $generatedLocalVarName[key] = value;
@@ -165,9 +165,9 @@ abstract class EncodeHelper implements HelperCore {
         buffer.writeln('        $toJsonMapHelperName($safeJsonKeyString, $expression);');
       }
     }
-    buffer.writeln('        return $generatedLocalVarName;');
-    buffer.writeln('    }');
-    buffer.writeln('  }');
+    buffer..writeln('        return $generatedLocalVarName;')
+      ..writeln('    }')
+      ..writeln('  }');
   }
 
   String _serializeField(FieldElement field, String accessExpression, bool explicitToJson) {

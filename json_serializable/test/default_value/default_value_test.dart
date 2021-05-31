@@ -8,6 +8,7 @@ import '../test_utils.dart';
 import 'default_value.dart' as normal;
 import 'default_value.g_any_map__checked.dart' as checked;
 import 'default_value_interface.dart';
+import 'implicit_default_value.dart' as implicit;
 
 const _defaultInstance = {
   'fieldBool': true,
@@ -15,8 +16,10 @@ const _defaultInstance = {
   'fieldInt': 42,
   'fieldDouble': 3.14,
   'fieldListEmpty': [],
+  'fieldSetEmpty': [],
   'fieldMapEmpty': <String, dynamic>{},
   'fieldListSimple': [1, 2, 3],
+  'fieldSetSimple': ['entry1', 'entry2'],
   'fieldMapSimple': <String, dynamic>{'answer': 42},
   'fieldMapListString': {
     'root': ['child']
@@ -30,8 +33,10 @@ const _otherValues = {
   'fieldInt': 43,
   'fieldDouble': 2.718,
   'fieldListEmpty': [42],
+  'fieldSetEmpty': [42],
   'fieldMapEmpty': {'question': false},
   'fieldListSimple': [4, 5, 6],
+  'fieldSetSimple': ['entry3'],
   'fieldMapSimple': <String, dynamic>{},
   'fieldMapListString': {
     'root2': ['alpha']
@@ -42,6 +47,7 @@ const _otherValues = {
 void main() {
   group('nullable', () => _test(normal.fromJson));
   group('non-nullable', () => _test(checked.fromJson));
+  group('implicit', () => _test(implicit.fromJson));
 }
 
 void _test(DefaultValue Function(Map<String, dynamic> json) fromJson) {

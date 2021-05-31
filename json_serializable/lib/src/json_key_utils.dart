@@ -8,40 +8,31 @@ import 'package:analyzer/dart/element/type.dart';
 import 'package:build/build.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:source_gen/source_gen.dart';
+import 'package:source_helper/source_helper.dart';
 
 import 'json_literal_generator.dart';
+import 'shared_checkers.dart';
+import 'type_helpers/config_types.dart';
 import 'utils.dart';
 
-final _jsonKeyExpando = Expando<JsonKey>();
+final _jsonKeyExpando = Expando<KeyConfig>();
 
-JsonKey jsonKeyForField(FieldElement field, JsonSerializable classAnnotation) =>
+KeyConfig jsonKeyForField(FieldElement field, ClassConfig classAnnotation) =>
     _jsonKeyExpando[field] ??= _from(field, classAnnotation);
 
-/// Will log "info" if [element] has an explicit value for [JsonKey.nullable]
-/// telling the programmer that it will be ignored.
-void logFieldWithConversionFunction(FieldElement element) {
-  final jsonKey = _jsonKeyExpando[element];
-  if (_explicitNullableExpando[jsonKey] ?? false) {
-    log.info(
-      'The `JsonKey.nullable` value on '
-      '`${element.enclosingElement.name}.${element.name}` will be ignored '
-      'because a custom conversion function is being used.',
-    );
-
-    _explicitNullableExpando[jsonKey] = null;
-  }
-}
-
-JsonKey _from(FieldElement element, JsonSerializable classAnnotation) {
+KeyConfig _from(FieldElement element, ClassConfig classAnnotation) {
   // If an annotation exists on `element` the source is a 'real' field.
   // If the result is `null`, check the getter – it is a property.
-  // TODO(kevmoo) setters: github.com/dart-lang/json_serializable/issues/24
+  // TODO: setters: github.com/google/json_serializable.dart/issues/24
   final obj = jsonKeyAnnotation(element);
 
-  if (obj == null) {
+  final ctorParamDefault = classAnnotation.ctorParamDefaults[element.name];
+
+  if (obj.isNull) {
     return _populateJsonKey(
       classAnnotation,
       element,
+      defaultValue: ctorParamDefault,
       ignore: classAnnotation.ignoreUnannotated,
     );
   }
@@ -49,7 +40,7 @@ JsonKey _from(FieldElement element, JsonSerializable classAnnotation) {
   /// Returns a literal value for [dartObject] if possible, otherwise throws
   /// an [InvalidGenerationSourceError] using [typeInformation] to describe
   /// the unsupported type.
-  Object literalForObject(
+  Object? literalForObject(
     DartObject dartObject,
     Iterable<String> typeInformation,
   ) {
@@ -59,16 +50,16 @@ JsonKey _from(FieldElement element, JsonSerializable classAnnotation) {
 
     final reader = ConstantReader(dartObject);
 
-    String badType;
+    String? badType;
     if (reader.isSymbol) {
       badType = 'Symbol';
     } else if (reader.isType) {
       badType = 'Type';
     } else if (dartObject.type is FunctionType) {
-      // TODO(kevmoo): Support calling function for the default value?
+      // TODO: Support calling function for the default value?
       badType = 'Function';
     } else if (!reader.isLiteral) {
-      badType = dartObject.type.element.name;
+      badType = dartObject.type!.element!.name;
     }
 
     if (badType != null) {
@@ -77,27 +68,39 @@ JsonKey _from(FieldElement element, JsonSerializable classAnnotation) {
           element, '`defaultValue` is `$badType`, it must be a literal.');
     }
 
-    final literal = reader.literalValue;
+    if (reader.isDouble || reader.isInt || reader.isString || reader.isBool) {
+      return reader.literalValue;
+    }
 
-    if (literal is num || literal is String || literal is bool) {
-      return literal;
-    } else if (literal is List<DartObject>) {
+    if (reader.isList) {
       return [
-        for (var e in literal)
+        for (var e in reader.listValue)
           literalForObject(e, [
             ...typeInformation,
             'List',
           ])
       ];
-    } else if (literal is Map<DartObject, DartObject>) {
+    }
+
+    if (reader.isSet) {
+      return {
+        for (var e in reader.setValue)
+          literalForObject(e, [
+            ...typeInformation,
+            'Set',
+          ])
+      };
+    }
+
+    if (reader.isMap) {
       final mapTypeInformation = [
         ...typeInformation,
         'Map',
       ];
-      return literal.map(
+      return reader.mapValue.map(
         (k, v) => MapEntry(
-          literalForObject(k, mapTypeInformation),
-          literalForObject(v, mapTypeInformation),
+          literalForObject(k!, mapTypeInformation),
+          literalForObject(v!, mapTypeInformation),
         ),
       );
     }
@@ -105,37 +108,61 @@ JsonKey _from(FieldElement element, JsonSerializable classAnnotation) {
     badType = typeInformation.followedBy(['$dartObject']).join(' > ');
 
     throwUnsupported(
-        element,
-        'The provided value is not supported: $badType. '
-        'This may be an error in package:json_serializable. '
-        'Please rerun your build with `--verbose` and file an issue.');
+      element,
+      'The provided value is not supported: $badType. '
+      'This may be an error in package:json_serializable. '
+      'Please rerun your build with `--verbose` and file an issue.',
+    );
   }
 
   /// Returns a literal object representing the value of [fieldName] in [obj].
   ///
   /// If [mustBeEnum] is `true`, throws an [InvalidGenerationSourceError] if
-  /// either the annotated field is not an `enum` or if the value in
+  /// either the annotated field is not an `enum` or `List` or if the value in
   /// [fieldName] is not an `enum` value.
-  Object _annotationValue(String fieldName, {bool mustBeEnum = false}) {
-    final annotationValue = obj.getField(fieldName);
+  Object? _annotationValue(String fieldName, {bool mustBeEnum = false}) {
+    final annotationValue = obj.read(fieldName);
 
-    final enumFields = iterateEnumFields(annotationValue.type);
+    final enumFields = annotationValue.isNull
+        ? null
+        : iterateEnumFields(annotationValue.objectValue.type!);
     if (enumFields != null) {
-      if (mustBeEnum && !isEnum(element.type)) {
-        throwUnsupported(
-          element,
-          '`$fieldName` can only be set on fields of type enum.',
-        );
+      if (mustBeEnum) {
+        late DartType targetEnumType;
+        if (element.type.isEnum) {
+          targetEnumType = element.type;
+        } else if (coreIterableTypeChecker.isAssignableFromType(element.type)) {
+          targetEnumType = coreIterableGenericType(element.type);
+        } else {
+          throwUnsupported(
+            element,
+            '`$fieldName` can only be set on fields of type enum or on '
+            'Iterable, List, or Set instances of an enum type.',
+          );
+        }
+        final annotatedEnumType = annotationValue.objectValue.type!;
+        if (!_interfaceTypesEqual(annotatedEnumType, targetEnumType)) {
+          throwUnsupported(
+            element,
+            '`$fieldName` has type '
+            '`${targetEnumType.getDisplayString(withNullability: false)}`, but '
+            'the provided unknownEnumValue is of type '
+            '`${annotatedEnumType.getDisplayString(withNullability: false)}`.',
+          );
+        }
       }
+
       final enumValueNames =
           enumFields.map((p) => p.name).toList(growable: false);
 
       final enumValueName = enumValueForDartObject<String>(
-          annotationValue, enumValueNames, (n) => n);
+          annotationValue.objectValue, enumValueNames, (n) => n);
 
-      return '${annotationValue.type.element.name}.$enumValueName';
+      return '${annotationValue.objectValue.type!.element!.name}.$enumValueName';
     } else {
-      final defaultValueLiteral = literalForObject(annotationValue, []);
+      final defaultValueLiteral = annotationValue.isNull
+          ? null
+          : literalForObject(annotationValue.objectValue, []);
       if (defaultValueLiteral == null) {
         return null;
       }
@@ -149,62 +176,66 @@ JsonKey _from(FieldElement element, JsonSerializable classAnnotation) {
     }
   }
 
+  final defaultValue = _annotationValue('defaultValue');
+  if (defaultValue != null && ctorParamDefault != null) {
+    log.warning(
+      'The constructor parameter for `${element.name}` has a default value '
+      '`$ctorParamDefault`, but the `JsonKey.defaultValue` value '
+      '`$defaultValue` will be used for missing or `null` values in JSON '
+      'decoding.',
+    );
+  }
+
   return _populateJsonKey(
     classAnnotation,
     element,
-    defaultValue: _annotationValue('defaultValue'),
-    disallowNullValue: obj.getField('disallowNullValue').toBoolValue(),
-    ignore: obj.getField('ignore').toBoolValue(),
-    includeIfNull: obj.getField('includeIfNull').toBoolValue(),
-    name: obj.getField('name').toStringValue(),
-    nullable: obj.getField('nullable').toBoolValue(),
-    required: obj.getField('required').toBoolValue(),
+    defaultValue: defaultValue ?? ctorParamDefault,
+    disallowNullValue: obj.read('disallowNullValue').literalValue as bool?,
+    ignore: obj.read('ignore').literalValue as bool?,
+    includeIfNull: obj.read('includeIfNull').literalValue as bool?,
+    name: obj.read('name').literalValue as String?,
+    required: obj.read('required').literalValue as bool?,
     unknownEnumValue: _annotationValue('unknownEnumValue', mustBeEnum: true),
   );
 }
 
-JsonKey _populateJsonKey(
-  JsonSerializable classAnnotation,
+KeyConfig _populateJsonKey(
+  ClassConfig classAnnotation,
   FieldElement element, {
-  Object defaultValue,
-  bool disallowNullValue,
-  bool ignore,
-  bool includeIfNull,
-  String name,
-  bool nullable,
-  bool required,
-  Object unknownEnumValue,
+  required Object? defaultValue,
+  bool? disallowNullValue,
+  bool? ignore,
+  bool? includeIfNull,
+  String? name,
+  bool? required,
+  Object? unknownEnumValue,
 }) {
   if (disallowNullValue == true) {
     if (includeIfNull == true) {
       throwUnsupported(
           element,
-          'Cannot set both `disallowNullvalue` and `includeIfNull` to `true`. '
+          'Cannot set both `disallowNullValue` and `includeIfNull` to `true`. '
           'This leads to incompatible `toJson` and `fromJson` behavior.');
     }
   }
 
-  final jsonKey = JsonKey(
+  return KeyConfig(
     defaultValue: defaultValue,
     disallowNullValue: disallowNullValue ?? false,
     ignore: ignore ?? false,
     includeIfNull: _includeIfNull(
         includeIfNull, disallowNullValue, classAnnotation.includeIfNull),
     name: _encodedFieldName(classAnnotation, name, element),
-    nullable: nullable ?? classAnnotation.nullable,
     required: required ?? false,
     unknownEnumValue: unknownEnumValue,
   );
-
-  _explicitNullableExpando[jsonKey] = nullable != null;
-
-  return jsonKey;
 }
 
-final _explicitNullableExpando = Expando<bool>('explicit nullable');
-
-String _encodedFieldName(JsonSerializable classAnnotation,
-    String jsonKeyNameValue, FieldElement fieldElement) {
+String _encodedFieldName(
+  JsonSerializable classAnnotation,
+  String? jsonKeyNameValue,
+  FieldElement fieldElement,
+) {
   if (jsonKeyNameValue != null) {
     return jsonKeyNameValue;
   }
@@ -218,21 +249,32 @@ String _encodedFieldName(JsonSerializable classAnnotation,
       return kebabCase(fieldElement.name);
     case FieldRename.pascal:
       return pascalCase(fieldElement.name);
+    default:
+      throw ArgumentError.value(
+        classAnnotation,
+        'classAnnotation',
+        'The provided `fieldRename` (${classAnnotation.fieldRename}) is not '
+            'supported.',
+      );
   }
-
-  throw ArgumentError.value(
-    classAnnotation,
-    'classAnnotation',
-    'The provided `fieldRename` (${classAnnotation.fieldRename}) is not '
-        'supported.',
-  );
 }
 
 bool _includeIfNull(
-    bool keyIncludeIfNull, bool keyDisallowNullValue, bool classIncludeIfNull) {
+  bool? keyIncludeIfNull,
+  bool? keyDisallowNullValue,
+  bool classIncludeIfNull,
+) {
   if (keyDisallowNullValue == true) {
     assert(keyIncludeIfNull != true);
     return false;
   }
   return keyIncludeIfNull ?? classIncludeIfNull;
+}
+
+bool _interfaceTypesEqual(DartType a, DartType b) {
+  if (a is InterfaceType && b is InterfaceType) {
+    // Handle nullability case. Pretty sure this is fine for enums.
+    return a.element == b.element;
+  }
+  return a == b;
 }

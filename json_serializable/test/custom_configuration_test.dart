@@ -6,10 +6,12 @@
 import 'dart:async';
 
 import 'package:analyzer/dart/element/type.dart';
+import 'package:build/experiments.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:json_serializable/json_serializable.dart';
 import 'package:json_serializable/src/constants.dart';
 import 'package:json_serializable/src/type_helper.dart';
+import 'package:json_serializable/src/type_helpers/config_types.dart';
 import 'package:path/path.dart' as p;
 import 'package:source_gen/source_gen.dart';
 import 'package:source_gen_test/source_gen_test.dart';
@@ -17,22 +19,25 @@ import 'package:test/test.dart';
 
 import 'shared_config.dart';
 
-LibraryReader _libraryReader;
+late LibraryReader _libraryReader;
 
-void main() async {
+Future<void> main() async {
   initializeBuildLogTracking();
-  _libraryReader = await initializeLibraryReaderForDirectory(
-    p.join('test', 'test_sources'),
-    'test_sources.dart',
+  _libraryReader = await withEnabledExperiments(
+    () => initializeLibraryReaderForDirectory(
+      p.join('test', 'test_sources'),
+      'test_sources.dart',
+    ),
+    ['non-nullable'],
   );
 
   group('without wrappers', () {
-    _registerTests(JsonSerializable.defaults);
+    _registerTests(ClassConfig.defaults);
   });
 
   group('configuration', () {
-    Future<Null> runWithConfigAndLogger(
-        JsonSerializable config, String className) async {
+    Future<void> runWithConfigAndLogger(
+        JsonSerializable? config, String className) async {
       await generateForElement(
           JsonSerializableGenerator(
               config: config, typeHelpers: const [_ConfigLogger()]),
@@ -86,26 +91,28 @@ void main() async {
     });
 
     test(
-        'explicit values in annotation override corresponding settings in config',
-        () async {
-      await runWithConfigAndLogger(
-          JsonSerializable.fromJson(generatorConfigNonDefaultJson),
-          'ConfigurationExplicitDefaults');
+      'explicit values in annotation override corresponding settings in config',
+      () async {
+        await runWithConfigAndLogger(
+            JsonSerializable.fromJson(generatorConfigNonDefaultJson),
+            'ConfigurationExplicitDefaults');
 
-      expect(_ConfigLogger.configurations, hasLength(2));
-      expect(_ConfigLogger.configurations.first,
-          same(_ConfigLogger.configurations.last));
+        expect(_ConfigLogger.configurations, hasLength(2));
+        expect(_ConfigLogger.configurations.first,
+            same(_ConfigLogger.configurations.last));
 
-      // The effective configuration should be non-Default configuration, but
-      // with all fields set from JsonSerializable as the defaults
+        // The effective configuration should be non-Default configuration, but
+        // with all fields set from JsonSerializable as the defaults
 
-      final expected = Map<String, dynamic>.from(generatorConfigNonDefaultJson);
-      for (var jsonSerialKey in jsonSerializableFields) {
-        expected[jsonSerialKey] = generatorConfigDefaultJson[jsonSerialKey];
-      }
+        final expected =
+            Map<String, dynamic>.from(generatorConfigNonDefaultJson);
+        for (var jsonSerialKey in jsonSerializableFields) {
+          expected[jsonSerialKey] = generatorConfigDefaultJson[jsonSerialKey];
+        }
 
-      expect(_ConfigLogger.configurations.first.toJson(), expected);
-    });
+        expect(_ConfigLogger.configurations.first.toJson(), expected);
+      },
+    );
   });
 }
 
@@ -123,7 +130,7 @@ void _registerTests(JsonSerializable generator) {
       final output = await _runForElementNamed(
           const JsonSerializable(), 'TrivialNestedNullable');
 
-      final expected = r'''
+      const expected = r'''
 Map<String, dynamic> _$TrivialNestedNullableToJson(
         TrivialNestedNullable instance) =>
     <String, dynamic>{
@@ -138,7 +145,7 @@ Map<String, dynamic> _$TrivialNestedNullableToJson(
       final output = await _runForElementNamed(
           const JsonSerializable(), 'TrivialNestedNonNullable');
 
-      final expected = r'''
+      const expected = r'''
 Map<String, dynamic> _$TrivialNestedNonNullableToJson(
         TrivialNestedNonNullable instance) =>
     <String, dynamic>{
@@ -186,7 +193,10 @@ Map<String, dynamic> _$TrivialNestedNonNullableToJson(
       final output =
           await runForElementNamed('ParentObjectWithDynamicChildren');
 
-      expect(output, contains('children = json[\'children\'] as List;'));
+      expect(
+        output,
+        contains('children = json[\'children\'] as List<dynamic>;'),
+      );
     });
   });
 
@@ -205,14 +215,18 @@ class _ConfigLogger implements TypeHelper<TypeHelperContextWithConfig> {
   const _ConfigLogger();
 
   @override
-  Object deserialize(DartType targetType, String expression,
-      TypeHelperContextWithConfig context) {
+  Object? deserialize(
+    DartType targetType,
+    String expression,
+    TypeHelperContextWithConfig context,
+    bool defaultProvided,
+  ) {
     configurations.add(context.config);
     return null;
   }
 
   @override
-  Object serialize(DartType targetType, String expression,
+  Object? serialize(DartType targetType, String expression,
       TypeHelperContextWithConfig context) {
     configurations.add(context.config);
     return null;

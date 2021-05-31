@@ -21,10 +21,22 @@ Configuration: {name: bob, count: 42}
     _expectThrows(
       '{}',
       r'''
-line 1, column 1: Required keys are missing: name, count.
+line 1, column 1: Required keys are missing: name.
   ╷
 1 │ {}
   │ ^^
+  ╵''',
+    );
+  });
+
+  test('missing count', () {
+    _expectThrows(
+      '{"name":"something"}',
+      r'''
+line 1, column 1: Missing key "count". type 'Null' is not a subtype of type 'int' in type cast
+  ╷
+1 │ {"name":"something"}
+  │ ^^^^^^^^^^^^^^^^^^^^
   ╵''',
     );
   });
@@ -81,7 +93,7 @@ line 1, column 2: Unrecognized keys: [bob]; supported keys: [name, count]
     _expectThrows(
       '{"name": 42, "count": 42}',
       r'''
-line 1, column 10: Unsupported value for "name".
+line 1, column 10: Unsupported value for "name". type 'int' is not a subtype of type 'String' in type cast
   ╷
 1 │ {"name": 42, "count": 42}
   │          ^^
@@ -103,10 +115,17 @@ line 1, column 10: Unsupported value for "name". Cannot be empty.
 }
 
 void _expectThrows(String yamlContent, matcher) => expect(
-    () => _run(yamlContent),
-    throwsA(isA<ParsedYamlException>().having((e) {
-      printOnFailure("r'''\n${e.formattedMessage}'''");
-      return e.formattedMessage;
-    }, 'formattedMessage', matcher)));
+      () => _run(yamlContent),
+      throwsA(
+        isA<ParsedYamlException>().having(
+          (e) {
+            printOnFailure("r'''\n${e.formattedMessage}'''");
+            return e.formattedMessage;
+          },
+          'formattedMessage',
+          matcher,
+        ),
+      ),
+    );
 
 void _run(String yamlContent) => example.main([yamlContent]);

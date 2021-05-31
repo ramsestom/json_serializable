@@ -32,15 +32,15 @@ enum StatusCode {
   unknown,
 }
 
-Duration durationFromInt(int ms) =>
+Duration? durationFromInt(int? ms) =>
     ms == null ? null : Duration(milliseconds: ms);
 
-int durationToInt(Duration duration) => duration?.inMilliseconds;
+int? durationToInt(Duration? duration) => duration?.inMilliseconds;
 
-DateTime dateTimeFromEpochUs(int us) =>
+DateTime? dateTimeFromEpochUs(int? us) =>
     us == null ? null : DateTime.fromMicrosecondsSinceEpoch(us);
 
-int dateTimeToEpochUs(DateTime dateTime) => dateTime?.microsecondsSinceEpoch;
+int? dateTimeToEpochUs(DateTime? dateTime) => dateTime?.microsecondsSinceEpoch;
 
 bool deepEquals(a, b) => const DeepCollectionEquality().equals(a, b);
 
@@ -67,7 +67,7 @@ class Platform {
 }
 
 abstract class ItemCore {
-  final int price;
+  final int? price;
 
   ItemCore(this.price);
 }
@@ -75,7 +75,7 @@ abstract class ItemCore {
 class MyList<T> extends ListBase<T> {
   final List<T> _data;
 
-  MyList(Iterable<T> source) : _data = source.toList() ?? [];
+  MyList(Iterable<T> source) : _data = source.toList();
 
   factory MyList.fromJson(List<T> items) => MyList(items);
 

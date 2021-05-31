@@ -1,11 +1,15 @@
-# See https://github.com/dart-lang/mono_repo for details on this file
-travis:
-  sudo: required
-  addons:
-    chrome: stable
-  branches:
-    only:
-    - master
+# See https://github.com/google/mono_repo.dart for details on this file
+self_validate: analyzer_and_format
+
+github:
+  on:
+    push:
+      branches:
+      - master
+      - 4_x
+    pull_request:
+    schedule:
+    - cron: "0 0 * * 0"
 
 merge_stages:
 - analyzer_and_format

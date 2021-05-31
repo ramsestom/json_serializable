@@ -11,7 +11,7 @@ import 'package:test_process/test_process.dart';
 
 final _examplePath = p.join('example', 'example.dart');
 
-final _readmeContent = File('readme.md').readAsStringSync();
+final _readmeContent = File('README.md').readAsStringSync();
 final _exampleContent = File(_examplePath).readAsStringSync();
 
 const _memberEnd = '\n}';
@@ -43,8 +43,8 @@ void main() {
   });
 
   test('ran example', () async {
-    final inputContent = '{"name": "", "count": 1}';
-    final errorContent = r'''
+    const inputContent = '{"name": "", "count": 1}';
+    const errorContent = r'''
 Unhandled exception:
 ParsedYamlException: line 1, column 10: Unsupported value for "name". Cannot be empty.
   ╷
@@ -59,9 +59,13 @@ $errorContent
 ```'''));
 
     final proc = await TestProcess.start(
-        Platform.resolvedExecutable, [_examplePath, inputContent]);
+      Platform.resolvedExecutable,
+      [_examplePath, inputContent],
+    );
     await expectLater(
-        proc.stderr, emitsInOrder(LineSplitter.split(errorContent)));
+      proc.stderr,
+      emitsInOrder(LineSplitter.split(errorContent)),
+    );
 
     await proc.shouldExit(isNot(0));
   });

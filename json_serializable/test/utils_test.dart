@@ -3,10 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 
 @TestOn('vm')
-
-import 'package:test/test.dart';
-
 import 'package:json_serializable/src/utils.dart';
+import 'package:test/test.dart';
 
 const _kebabItems = {
   'simple': 'simple',
@@ -49,5 +47,16 @@ void main() {
         expect(snakeCase(entry.key), entry.value);
       });
     }
+  });
+
+  group('nonPrivateName', () {
+    test('removes leading underscores', () {
+      final name = nonPrivateName('__hello__world__');
+      expect(name, equals('hello__world__'));
+    });
+    test('does not changes public names', () {
+      final name = nonPrivateName('HelloWorld');
+      expect(name, equals('HelloWorld'));
+    });
   });
 }

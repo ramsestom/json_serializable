@@ -17,15 +17,6 @@ void main() {
       roundTripObject(p, (json) => Person.fromJson(json));
     }
 
-    test('null', () {
-      roundTripPerson(Person(null, null, null));
-    });
-
-    test('empty', () {
-      roundTripPerson(Person('', '', null,
-          middleName: '', dateOfBirth: DateTime.fromMillisecondsSinceEpoch(0)));
-    });
-
     test('now', () {
       roundTripPerson(Person('a', 'b', Category.charmed,
           middleName: 'c', dateOfBirth: DateTime.now()));
@@ -37,13 +28,17 @@ void main() {
     });
 
     test('empty json', () {
-      final person = Person.fromJson({});
+      final person = Person.fromJson({
+        'firstName': 'a',
+        'lastName': 'b',
+        '\$house': 'top',
+      });
       expect(person.dateOfBirth, isNull);
       roundTripPerson(person);
     });
 
     test('enum map', () {
-      final person = Person(null, null, null)
+      final person = Person('', '', Category.bottom)
         ..houseMap = {'bob': Category.strange}
         ..categoryCounts = {Category.strange: 1};
       expect(person.dateOfBirth, isNull);
@@ -92,7 +87,10 @@ void main() {
 
     test('required, but missing enum value fails', () {
       expect(
-          () => Order.fromJson({}),
+          () => Person.fromJson({
+                'firstName': 'a',
+                'lastName': 'b',
+              }),
           _throwsArgumentError('A value must be provided. Supported values: '
               'top, bottom, strange, charmed, up, down, not_discovered_yet'));
     });
@@ -111,7 +109,6 @@ void main() {
         ..altPlatforms = {
           'u': Platform.undefined,
           'f': Platform.foo,
-          'null': null
         };
 
       roundTripOrder(order);
@@ -124,7 +121,6 @@ void main() {
         ..altPlatforms = {
           'u': Platform.undefined,
           'f': Platform.foo,
-          'null': null
         }
         ..homepage = Uri.parse('https://dart.dev');
 
@@ -238,7 +234,7 @@ void main() {
 
     test('support ints as doubles', () {
       final value = {
-        'doubles': [0, 0.0, null],
+        'doubles': [0, 0.0],
         'nnDoubles': [0, 0.0]
       };
 
@@ -250,7 +246,7 @@ void main() {
         'ints': [3.14, 0],
       };
 
-      expect(() => Numbers.fromJson(value), throwsCastError);
+      expect(() => Numbers.fromJson(value), throwsTypeError);
     });
   });
 
@@ -265,5 +261,19 @@ void main() {
         roundTripObject(instance, (j) => MapKeyVariety.fromJson(j));
 
     expect(roundTrip, instance);
+  });
+
+  test('UnknownEnumValue', () {
+    final instance = UnknownEnumValue.fromJson({
+      'enumValue': 'nope',
+      'enumIterable': ['nope'],
+      'enumList': ['nope'],
+      'enumSet': ['nope'],
+    });
+
+    expect(instance.enumValue, Category.notDiscoveredYet);
+    expect(instance.enumIterable, [Category.notDiscoveredYet]);
+    expect(instance.enumList, [Category.notDiscoveredYet]);
+    expect(instance.enumSet, [Category.notDiscoveredYet]);
   });
 }

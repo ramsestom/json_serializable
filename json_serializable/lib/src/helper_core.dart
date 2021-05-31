@@ -4,20 +4,22 @@
 
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
-import 'package:json_annotation/json_annotation.dart';
-import 'package:json_serializable/src/method_config.dart';
+import 'method_config.dart';
 import 'package:meta/meta.dart';
 import 'package:source_gen/source_gen.dart';
+import 'package:source_helper/source_helper.dart';
 
+import 'constants.dart';
 import 'json_key_utils.dart';
 import 'type_helper.dart';
 import 'type_helper_ctx.dart';
+import 'type_helpers/config_types.dart';
 import 'unsupported_type_error.dart';
 import 'utils.dart';
 
 abstract class HelperCore {
   final ClassElement element;
-  final JsonSerializable config;
+  final ClassConfig config;
 
   HelperCore(this.element, this.config);
 
@@ -37,7 +39,7 @@ abstract class HelperCore {
       escapeDartString(nameAccess(field));
 
   @protected
-  String get prefix => '_\$${element.name}';
+  String get prefix => '_\$${nonPrivateName(element.name)}';
 
   /// Returns a [String] representing the type arguments that exist on
   /// [element].
@@ -48,23 +50,46 @@ abstract class HelperCore {
       genericClassArguments(element, withConstraints);
 
   @protected
-  JsonKey jsonKeyFor(FieldElement field) => jsonKeyForField(field, config);
+  KeyConfig jsonKeyFor(FieldElement field) => jsonKeyForField(field, config);
 
   @protected
-  TypeHelperCtx getHelperContext(FieldElement field, MethodConfig methodconf) =>
-      typeHelperContext(this, field, jsonKeyFor(field), methodconf);
+  TypeHelperCtx getHelperContext(FieldElement field, MethodConfig? methodconf) =>
+      typeHelperContext(this, field, methodconf);
 }
 
 InvalidGenerationSourceError createInvalidGenerationError(
-    String targetMember, FieldElement field, UnsupportedTypeError e) {
+  String targetMember,
+  FieldElement field,
+  UnsupportedTypeError error,
+) {
   var message = 'Could not generate `$targetMember` code for `${field.name}`';
-  if (field.type != e.type) {
-    message = '$message because of type `${typeToCode(e.type)}`';
-  }
-  message = '$message.\n${e.reason}';
 
-  final todo = 'Make sure all of the types are serializable.';
-  return InvalidGenerationSourceError(message, todo: todo, element: field);
+  String? todo;
+  if (error.type is TypeParameterType) {
+    message = '$message because of type '
+        '`${error.type.getDisplayString(withNullability: false)}` (type parameter)';
+
+    todo = '''
+To support type parameters (generic types) you can:
+$converterOrKeyInstructions
+* Set `JsonSerializable.genericArgumentFactories` to `true`
+  https://pub.dev/documentation/json_annotation/latest/json_annotation/JsonSerializable/genericArgumentFactories.html''';
+  } else if (field.type != error.type) {
+    message = '$message because of type `${typeToCode(error.type)}`';
+  } else {
+    todo = '''
+To support the type `${error.type.element!.name}` you can:
+$converterOrKeyInstructions''';
+  }
+
+  return InvalidGenerationSourceError(
+    [
+      '$message.',
+      if (error.reason != null) error.reason,
+      if (todo != null) todo,
+    ].join('\n'),
+    element: field,
+  );
 }
 
 /// Returns a [String] representing the type arguments that exist on
@@ -89,13 +114,13 @@ InvalidGenerationSourceError createInvalidGenerationError(
 /// ```
 /// "<T as num, S>"
 /// ```
-String genericClassArguments(ClassElement element, bool withConstraints) {
+String genericClassArguments(ClassElement element, bool? withConstraints) {
   if (withConstraints == null || element.typeParameters.isEmpty) {
     return '';
   }
   final values = element.typeParameters.map((t) {
     if (withConstraints && t.bound != null) {
-      final boundCode = typeToCode(t.bound);
+      final boundCode = typeToCode(t.bound!);
       return '${t.name} extends $boundCode';
     } else {
       return t.name;
@@ -110,17 +135,19 @@ String genericClassArguments(ClassElement element, bool withConstraints) {
 /// types and locations of these files in code. Specifically, it supports
 /// only [InterfaceType]s, with optional type arguments that are also should
 /// be [InterfaceType]s.
-String typeToCode(DartType type) {
+String typeToCode(
+  DartType type, {
+  bool forceNullable = false,
+}) {
   if (type.isDynamic) {
     return 'dynamic';
   } else if (type is InterfaceType) {
-    final typeArguments = type.typeArguments;
-    if (typeArguments.isEmpty) {
-      return type.element.name;
-    } else {
-      final typeArgumentsCode = typeArguments.map(typeToCode).join(', ');
-      return '${type.element.name}<$typeArgumentsCode>';
-    }
+    return [
+      type.element.name,
+      if (type.typeArguments.isNotEmpty)
+        '<${type.typeArguments.map(typeToCode).join(', ')}>',
+      (type.isNullableType || forceNullable) ? '?' : '',
+    ].join();
   }
   throw UnimplementedError('(${type.runtimeType}) $type');
 }

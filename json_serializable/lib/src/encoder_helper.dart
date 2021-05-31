@@ -3,11 +3,14 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/dart/element/nullability_suffix.dart';
 import 'package:json_annotation/json_annotation.dart';
-import 'package:json_serializable/src/method_config.dart';
+import 'package:source_helper/source_helper.dart';
+import 'method_config.dart';
 
 import 'constants.dart';
 import 'helper_core.dart';
+import 'type_helpers/generic_factory_helper.dart';
 import 'type_helpers/json_converter_helper.dart';
 import 'unsupported_type_error.dart';
 
@@ -21,7 +24,20 @@ abstract class EncodeHelper implements HelperCore {
 
     final functionName = '${prefix}ToJson${genericClassArgumentsImpl(true)}'; 
     buffer.write('Map<String, dynamic> $functionName'
-        '($targetClassReference $_toJsonParamName, {bool explicitToJson=${config.explicitToJson}}) ');
+        '($targetClassReference $_toJsonParamName');
+
+    if (config.genericArgumentFactories) {
+      for (var arg in element.typeParameters) {
+        final helperName = toJsonForType(
+          arg.instantiate(nullabilitySuffix: NullabilitySuffix.none),
+        );
+        buffer.write(',Object? Function(${arg.name} value) $helperName');
+      }
+      if (element.typeParameters.isNotEmpty) {
+        buffer.write(',');
+      }
+    }
+    buffer.write(', {bool explicitToJson=${config.explicitToJson}}) ');
 
     final writeNaive = accessibleFields.every(_writeJsonValueNaive);
 
@@ -49,7 +65,7 @@ abstract class EncodeHelper implements HelperCore {
     buffer.writeln('        return $generatedLocalVarName;');
     buffer.writeln('    }');
     buffer.writeln('    else {');
-     buffer.writeln('        final $generatedLocalVarName = <String, dynamic>{');
+    buffer.writeln('        final $generatedLocalVarName = <String, dynamic>{');
     buffer.writeAll(fields.map((field) {
       final access = _fieldAccess(field);
       final value = '${safeNameAccess(field)}: ${_serializeField(field, access, false)}';
@@ -64,8 +80,12 @@ abstract class EncodeHelper implements HelperCore {
   static const _toJsonParamName = 'instance';
 
   void _writeToJsonWithNullChecks(
-      StringBuffer buffer, Iterable<FieldElement> fields) {
-    buffer.writeln('{');
+    StringBuffer buffer,
+    Iterable<FieldElement> fields,
+  ) {
+    buffer
+      ..writeln('{')
+      ..writeln('    final $generatedLocalVarName = <String, dynamic>{');
     buffer.writeln('    if (explicitToJson) {');
     buffer.writeln('        final $generatedLocalVarName = <String, dynamic>{');
 
@@ -98,15 +118,15 @@ abstract class EncodeHelper implements HelperCore {
           buffer.writeln('        };');
           buffer.writeln();
 
-          // write the helper to be used by all following null-excluding
-          // fields
-          buffer.writeln('''
-        void $toJsonMapHelperName(String key, dynamic value) {
-          if (value != null) {
-            $generatedLocalVarName[key] = value;
-          }
-        }
-    ''');
+            // write the helper to be used by all following null-excluding
+            // fields
+          buffer..writeln('''
+              void $toJsonMapHelperName(String key, dynamic value) {
+                if (value != null) {
+                  $generatedLocalVarName[key] = value;
+                }
+              }
+          ''');
           directWrite = false;
         }
         buffer.writeln('        $toJsonMapHelperName($safeJsonKeyString, $expression);');
@@ -155,7 +175,8 @@ abstract class EncodeHelper implements HelperCore {
       return getHelperContext(field, MethodConfig()..explicitToJson=explicitToJson)
           .serialize(field.type, accessExpression)
           .toString();
-    } on UnsupportedTypeError catch (e) {
+    } on UnsupportedTypeError catch (e) // ignore: avoid_catching_errors
+    {
       throw createInvalidGenerationError('toJson', field, e);
     }
   }
@@ -164,8 +185,9 @@ abstract class EncodeHelper implements HelperCore {
   /// we can avoid checking for `null`.
   bool _writeJsonValueNaive(FieldElement field) {
     final jsonKey = jsonKeyFor(field);
+
     return jsonKey.includeIfNull ||
-        (!jsonKey.nullable && !_fieldHasCustomEncoder(field));
+        (!field.type.isNullableType && !_fieldHasCustomEncoder(field));
   }
 
   /// Returns `true` if [field] has a user-defined encoder.

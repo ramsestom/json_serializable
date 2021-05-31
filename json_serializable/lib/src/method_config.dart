@@ -1,5 +1,5 @@
 class MethodConfig {
 
-  bool explicitToJson;
+  bool explicitToJson = false;
 
 }

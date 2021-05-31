@@ -7,19 +7,20 @@ import 'dart:convert';
 
 import 'package:analyzer/dart/element/element.dart';
 import 'package:build/build.dart';
+import 'package:json_annotation/json_annotation.dart';
 import 'package:path/path.dart' as p;
 import 'package:source_gen/source_gen.dart';
-
-import 'package:json_annotation/json_annotation.dart';
-
-import 'utils.dart';
+import 'package:source_helper/source_helper.dart';
 
 class JsonLiteralGenerator extends GeneratorForAnnotation<JsonLiteral> {
   const JsonLiteralGenerator();
 
   @override
   Future<String> generateForAnnotatedElement(
-      Element element, ConstantReader annotation, BuildStep buildStep) async {
+    Element element,
+    ConstantReader annotation,
+    BuildStep buildStep,
+  ) async {
     if (p.isAbsolute(annotation.read('path').stringValue)) {
       throw ArgumentError(
           '`annotation.path` must be relative path to the source file.');
@@ -40,10 +41,23 @@ class JsonLiteralGenerator extends GeneratorForAnnotation<JsonLiteral> {
 }
 
 /// Returns a [String] representing a valid Dart literal for [value].
-String jsonLiteralAsDart(dynamic value) {
+String jsonLiteralAsDart(Object? value) {
   if (value == null) return 'null';
 
   if (value is String) return escapeDartString(value);
+
+  if (value is double) {
+    if (value.isNaN) {
+      return 'double.nan';
+    }
+
+    if (value.isInfinite) {
+      if (value.isNegative) {
+        return 'double.negativeInfinity';
+      }
+      return 'double.infinity';
+    }
+  }
 
   if (value is bool || value is num) return value.toString();
 
@@ -52,15 +66,20 @@ String jsonLiteralAsDart(dynamic value) {
     return '[$listItems]';
   }
 
+  if (value is Set) {
+    final listItems = value.map(jsonLiteralAsDart).join(', ');
+    return '{$listItems}';
+  }
+
   if (value is Map) return jsonMapAsDart(value);
 
   throw StateError(
-      'Should never get here – with ${value.runtimeType} - `$value`.');
+    'Should never get here – with ${value.runtimeType} - `$value`.',
+  );
 }
 
 String jsonMapAsDart(Map value) {
-  final buffer = StringBuffer();
-  buffer.write('{');
+  final buffer = StringBuffer()..write('{');
 
   var first = true;
   value.forEach((k, v) {
@@ -69,9 +88,10 @@ String jsonMapAsDart(Map value) {
     } else {
       buffer.writeln(',');
     }
-    buffer.write(escapeDartString(k as String));
-    buffer.write(': ');
-    buffer.write(jsonLiteralAsDart(v));
+    buffer
+      ..write(escapeDartString(k as String))
+      ..write(': ')
+      ..write(jsonLiteralAsDart(v));
   });
 
   buffer.write('}');

@@ -4,8 +4,9 @@
 
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
-import 'package:json_annotation/json_annotation.dart';
 import 'package:json_serializable/src/method_config.dart';
+
+import 'type_helpers/config_types.dart';
 
 /// Context information provided in calls to [TypeHelper.serialize] and
 /// [TypeHelper.deserialize].
@@ -16,16 +17,13 @@ abstract class TypeHelperContext {
   /// The field that code is being generated for.
   FieldElement get fieldElement;
 
-  /// Returns `true` if [fieldElement] could potentially contain a `null` value.
-  bool get nullable;
+  /// [expression] may be just the name of the field or it may an expression
+  /// representing the serialization of a value.
+  Object? serialize(DartType fieldType, String expression);
 
   /// [expression] may be just the name of the field or it may an expression
   /// representing the serialization of a value.
-  Object serialize(DartType fieldType, String expression);
-
-  /// [expression] may be just the name of the field or it may an expression
-  /// representing the serialization of a value.
-  Object deserialize(DartType fieldType, String expression);
+  Object? deserialize(DartType fieldType, String expression);
 
   /// Adds [memberContent] to the set of generated, top-level members.
   void addMember(String memberContent);
@@ -34,8 +32,8 @@ abstract class TypeHelperContext {
 /// Extended context information with includes configuration values
 /// corresponding to `JsonSerializableGenerator` settings.
 abstract class TypeHelperContextWithConfig extends TypeHelperContext {
-  JsonSerializable get config;
-  MethodConfig get methodConfig;
+  ClassConfig get config;
+  MethodConfig? get methodConfig;
 }
 
 abstract class TypeHelper<T extends TypeHelperContext> {
@@ -56,7 +54,7 @@ abstract class TypeHelper<T extends TypeHelperContext> {
   /// String serialize(DartType targetType, String expression) =>
   ///   "$expression.id";
   /// ```.
-  Object serialize(DartType targetType, String expression, T context);
+  Object? serialize(DartType targetType, String expression, T context);
 
   /// Returns Dart code that deserializes an [expression] representing a JSON
   /// literal to into [targetType].
@@ -81,11 +79,19 @@ abstract class TypeHelper<T extends TypeHelperContext> {
   /// String deserialize(DartType targetType, String expression) =>
   ///   "new ${targetType.name}.fromInt($expression)";
   /// ```.
-  Object deserialize(DartType targetType, String expression, T context);
+  Object? deserialize(
+    DartType targetType,
+    String expression,
+    T context,
+    bool defaultProvided,
+  );
 }
 
 Object commonNullPrefix(
-        bool nullable, String expression, Object unsafeExpression) =>
+  bool nullable,
+  String expression,
+  Object unsafeExpression,
+) =>
     nullable
         ? '$expression == null ? null : $unsafeExpression'
         : unsafeExpression;

@@ -7,9 +7,9 @@
 | disallow_unrecognized_keys | [JsonSerializable.disallowUnrecognizedKeys] |                             |
 | explicit_to_json           | [JsonSerializable.explicitToJson]           |                             |
 | field_rename               | [JsonSerializable.fieldRename]              |                             |
+| generic_argument_factories | [JsonSerializable.genericArgumentFactories] |                             |
 | ignore_unannotated         | [JsonSerializable.ignoreUnannotated]        |                             |
 | include_if_null            | [JsonSerializable.includeIfNull]            | [JsonKey.includeIfNull]     |
-| nullable                   | [JsonSerializable.nullable]                 | [JsonKey.nullable]          |
 |                            |                                             | [JsonKey.defaultValue]      |
 |                            |                                             | [JsonKey.disallowNullValue] |
 |                            |                                             | [JsonKey.fromJson]          |
@@ -26,11 +26,10 @@
 [JsonSerializable.disallowUnrecognizedKeys]: https://pub.dev/documentation/json_annotation/latest/json_annotation/JsonSerializable/disallowUnrecognizedKeys.html
 [JsonSerializable.explicitToJson]: https://pub.dev/documentation/json_annotation/latest/json_annotation/JsonSerializable/explicitToJson.html
 [JsonSerializable.fieldRename]: https://pub.dev/documentation/json_annotation/latest/json_annotation/JsonSerializable/fieldRename.html
+[JsonSerializable.genericArgumentFactories]: https://pub.dev/documentation/json_annotation/latest/json_annotation/JsonSerializable/genericArgumentFactories.html
 [JsonSerializable.ignoreUnannotated]: https://pub.dev/documentation/json_annotation/latest/json_annotation/JsonSerializable/ignoreUnannotated.html
 [JsonSerializable.includeIfNull]: https://pub.dev/documentation/json_annotation/latest/json_annotation/JsonSerializable/includeIfNull.html
 [JsonKey.includeIfNull]: https://pub.dev/documentation/json_annotation/latest/json_annotation/JsonKey/includeIfNull.html
-[JsonSerializable.nullable]: https://pub.dev/documentation/json_annotation/latest/json_annotation/JsonSerializable/nullable.html
-[JsonKey.nullable]: https://pub.dev/documentation/json_annotation/latest/json_annotation/JsonKey/nullable.html
 [JsonKey.defaultValue]: https://pub.dev/documentation/json_annotation/latest/json_annotation/JsonKey/defaultValue.html
 [JsonKey.disallowNullValue]: https://pub.dev/documentation/json_annotation/latest/json_annotation/JsonKey/disallowNullValue.html
 [JsonKey.fromJson]: https://pub.dev/documentation/json_annotation/latest/json_annotation/JsonKey/fromJson.html

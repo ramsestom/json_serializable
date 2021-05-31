@@ -6,104 +6,108 @@ part of 'default_value.g_any_map__checked.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-DefaultValue _$DefaultValueFromJson(Map json) {
-  return $checkedNew('DefaultValue', json, () {
-    final val = DefaultValue();
-    $checkedConvert(
-        json, 'fieldBool', (v) => val.fieldBool = v as bool ?? true);
-    $checkedConvert(
-        json, 'fieldString', (v) => val.fieldString = v as String ?? 'string');
-    $checkedConvert(json, 'fieldInt', (v) => val.fieldInt = v as int ?? 42);
-    $checkedConvert(json, 'fieldDouble',
-        (v) => val.fieldDouble = (v as num)?.toDouble() ?? 3.14);
-    $checkedConvert(
-        json, 'fieldListEmpty', (v) => val.fieldListEmpty = v as List ?? []);
-    $checkedConvert(
-        json, 'fieldMapEmpty', (v) => val.fieldMapEmpty = v as Map ?? {});
-    $checkedConvert(
-        json,
-        'fieldListSimple',
-        (v) => val.fieldListSimple =
-            (v as List)?.map((e) => e as int)?.toList() ?? [1, 2, 3]);
-    $checkedConvert(
-        json,
-        'fieldMapSimple',
-        (v) => val.fieldMapSimple = (v as Map)?.map(
-              (k, e) => MapEntry(k as String, e as int),
-            ) ??
-            {'answer': 42});
-    $checkedConvert(
-        json,
-        'fieldMapListString',
-        (v) => val.fieldMapListString = (v as Map)?.map(
-              (k, e) => MapEntry(
-                  k as String, (e as List)?.map((e) => e as String)?.toList()),
-            ) ??
-            {
-              'root': ['child']
-            });
-    $checkedConvert(
-        json,
-        'fieldEnum',
-        (v) => val.fieldEnum =
-            _$enumDecodeNullable(_$GreekEnumMap, v) ?? Greek.beta);
-    return val;
-  });
-}
+DefaultValue _$DefaultValueFromJson(Map json) => $checkedCreate(
+      'DefaultValue',
+      json,
+      ($checkedConvert) {
+        final val = DefaultValue(
+          $checkedConvert('fieldBool', (v) => v as bool?) ?? true,
+          $checkedConvert('fieldString', (v) => v as String?) ?? 'string',
+          $checkedConvert('fieldInt', (v) => v as int?) ?? 42,
+          $checkedConvert('fieldDouble', (v) => (v as num?)?.toDouble()) ??
+              3.14,
+          $checkedConvert('fieldListEmpty', (v) => v as List<dynamic>?) ?? [],
+          $checkedConvert(
+                  'fieldSetEmpty', (v) => (v as List<dynamic>?)?.toSet()) ??
+              {},
+          $checkedConvert('fieldMapEmpty', (v) => v as Map?) ?? {},
+          $checkedConvert(
+                  'fieldListSimple',
+                  (v) =>
+                      (v as List<dynamic>?)?.map((e) => e as int).toList()) ??
+              [1, 2, 3],
+          $checkedConvert(
+                  'fieldSetSimple',
+                  (v) =>
+                      (v as List<dynamic>?)?.map((e) => e as String).toSet()) ??
+              {'entry1', 'entry2'},
+          $checkedConvert(
+                  'fieldMapSimple',
+                  (v) => (v as Map?)?.map(
+                        (k, e) => MapEntry(k as String, e as int),
+                      )) ??
+              {'answer': 42},
+          $checkedConvert(
+                  'fieldMapListString',
+                  (v) => (v as Map?)?.map(
+                        (k, e) => MapEntry(
+                            k as String,
+                            (e as List<dynamic>)
+                                .map((e) => e as String)
+                                .toList()),
+                      )) ??
+              {
+                'root': ['child']
+              },
+          $checkedConvert('fieldEnum',
+                  (v) => _$enumDecodeNullable(_$GreekEnumMap, v)) ??
+              Greek.beta,
+        );
+        return val;
+      },
+    );
 
-Map<String, dynamic> _$DefaultValueToJson(DefaultValue instance) {
-  final val = <String, dynamic>{
-    'fieldBool': instance.fieldBool,
-  };
+Map<String, dynamic> _$DefaultValueToJson(DefaultValue instance) =>
+    <String, dynamic>{
+      'fieldBool': instance.fieldBool,
+      'fieldString': instance.fieldString,
+      'fieldInt': instance.fieldInt,
+      'fieldDouble': instance.fieldDouble,
+      'fieldListEmpty': instance.fieldListEmpty,
+      'fieldSetEmpty': instance.fieldSetEmpty.toList(),
+      'fieldMapEmpty': instance.fieldMapEmpty,
+      'fieldListSimple': instance.fieldListSimple,
+      'fieldSetSimple': instance.fieldSetSimple.toList(),
+      'fieldMapSimple': instance.fieldMapSimple,
+      'fieldMapListString': instance.fieldMapListString,
+      'fieldEnum': _$GreekEnumMap[instance.fieldEnum],
+    };
 
-  void writeNotNull(String key, dynamic value) {
-    if (value != null) {
-      val[key] = value;
-    }
-  }
-
-  writeNotNull('fieldString', instance.fieldString);
-  val['fieldInt'] = instance.fieldInt;
-  val['fieldDouble'] = instance.fieldDouble;
-  val['fieldListEmpty'] = instance.fieldListEmpty;
-  val['fieldMapEmpty'] = instance.fieldMapEmpty;
-  val['fieldListSimple'] = instance.fieldListSimple;
-  val['fieldMapSimple'] = instance.fieldMapSimple;
-  val['fieldMapListString'] = instance.fieldMapListString;
-  val['fieldEnum'] = _$GreekEnumMap[instance.fieldEnum];
-  return val;
-}
-
-T _$enumDecode<T>(
-  Map<T, dynamic> enumValues,
-  dynamic source, {
-  T unknownValue,
+K _$enumDecode<K, V>(
+  Map<K, V> enumValues,
+  Object? source, {
+  K? unknownValue,
 }) {
   if (source == null) {
-    throw ArgumentError('A value must be provided. Supported values: '
-        '${enumValues.values.join(', ')}');
+    throw ArgumentError(
+      'A value must be provided. Supported values: '
+      '${enumValues.values.join(', ')}',
+    );
   }
 
-  final value = enumValues.entries
-      .singleWhere((e) => e.value == source, orElse: () => null)
-      ?.key;
-
-  if (value == null && unknownValue == null) {
-    throw ArgumentError('`$source` is not one of the supported values: '
-        '${enumValues.values.join(', ')}');
-  }
-  return value ?? unknownValue;
+  return enumValues.entries.singleWhere(
+    (e) => e.value == source,
+    orElse: () {
+      if (unknownValue == null) {
+        throw ArgumentError(
+          '`$source` is not one of the supported values: '
+          '${enumValues.values.join(', ')}',
+        );
+      }
+      return MapEntry(unknownValue, enumValues.values.first);
+    },
+  ).key;
 }
 
-T _$enumDecodeNullable<T>(
-  Map<T, dynamic> enumValues,
+K? _$enumDecodeNullable<K, V>(
+  Map<K, V> enumValues,
   dynamic source, {
-  T unknownValue,
+  K? unknownValue,
 }) {
   if (source == null) {
     return null;
   }
-  return _$enumDecode<T>(enumValues, source, unknownValue: unknownValue);
+  return _$enumDecode<K, V>(enumValues, source, unknownValue: unknownValue);
 }
 
 const _$GreekEnumMap = {

@@ -4,16 +4,29 @@
 
 part of '_json_serializable_test_input.dart';
 
+@ShouldThrow(
+  '''
+Could not generate `fromJson` code for `result` because of type `TResult` (type parameter).
+To support type parameters (generic types) you can:
+$converterOrKeyInstructions
+* Set `JsonSerializable.genericArgumentFactories` to `true`
+  https://pub.dev/documentation/json_annotation/latest/json_annotation/JsonSerializable/genericArgumentFactories.html''',
+  element: 'result',
+)
+@JsonSerializable()
+class Issue713<TResult> {
+  List<TResult>? result;
+}
+
 @ShouldGenerate(r'''
 GenericClass<T, S> _$GenericClassFromJson<T extends num, S>(
-    Map<String, dynamic> json) {
-  return GenericClass<T, S>()
-    ..fieldObject = _dataFromJson(json['fieldObject'])
-    ..fieldDynamic = _dataFromJson(json['fieldDynamic'])
-    ..fieldInt = _dataFromJson(json['fieldInt'])
-    ..fieldT = _dataFromJson(json['fieldT'])
-    ..fieldS = _dataFromJson(json['fieldS']);
-}
+        Map<String, dynamic> json) =>
+    GenericClass<T, S>()
+      ..fieldObject = _dataFromJson(json['fieldObject'])
+      ..fieldDynamic = _dataFromJson(json['fieldDynamic'])
+      ..fieldInt = _dataFromJson(json['fieldInt'])
+      ..fieldT = _dataFromJson(json['fieldT'])
+      ..fieldS = _dataFromJson(json['fieldS']);
 
 Map<String, dynamic> _$GenericClassToJson<T extends num, S>(
         GenericClass<T, S> instance) =>
@@ -28,23 +41,45 @@ Map<String, dynamic> _$GenericClassToJson<T extends num, S>(
 @JsonSerializable()
 class GenericClass<T extends num, S> {
   @JsonKey(fromJson: _dataFromJson, toJson: _dataToJson)
-  Object fieldObject;
+  late Object fieldObject;
 
   @JsonKey(fromJson: _dataFromJson, toJson: _dataToJson)
   dynamic fieldDynamic;
 
   @JsonKey(fromJson: _dataFromJson, toJson: _dataToJson)
-  int fieldInt;
+  late int fieldInt;
 
   @JsonKey(fromJson: _dataFromJson, toJson: _dataToJson)
-  T fieldT;
+  late T fieldT;
 
   @JsonKey(fromJson: _dataFromJson, toJson: _dataToJson)
-  S fieldS;
+  late S fieldS;
 
   GenericClass();
 }
 
-T _dataFromJson<T extends num>(Object input) => null;
+T _dataFromJson<T extends num>(Object? input) => throw UnimplementedError();
 
-Object _dataToJson<T extends num>(T input) => null;
+Object _dataToJson<T extends num>(T input) => throw UnimplementedError();
+
+@ShouldGenerate(
+  r'''
+GenericArgumentFactoriesFlagWithoutGenericType
+    _$GenericArgumentFactoriesFlagWithoutGenericTypeFromJson(
+            Map<String, dynamic> json) =>
+        GenericArgumentFactoriesFlagWithoutGenericType();
+
+Map<String, dynamic> _$GenericArgumentFactoriesFlagWithoutGenericTypeToJson(
+        GenericArgumentFactoriesFlagWithoutGenericType instance) =>
+    <String, dynamic>{};
+''',
+  expectedLogItems: [
+    'The class `GenericArgumentFactoriesFlagWithoutGenericType` is annotated '
+        'with `JsonSerializable` field `genericArgumentFactories: true`. '
+        '`genericArgumentFactories: true` only affects classes with type '
+        'parameters. For classes without type parameters, the option is '
+        'ignored.',
+  ],
+)
+@JsonSerializable(genericArgumentFactories: true)
+class GenericArgumentFactoriesFlagWithoutGenericType {}

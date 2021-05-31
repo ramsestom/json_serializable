@@ -6,15 +6,14 @@ part of '_json_serializable_test_input.dart';
 
 @ShouldGenerate(r'''
 JsonConverterNamedCtor<E> _$JsonConverterNamedCtorFromJson<E>(
-    Map<String, dynamic> json) {
-  return JsonConverterNamedCtor<E>()
-    ..value = const _DurationMillisecondConverter.named()
-        .fromJson(json['value'] as int)
-    ..genericValue =
-        _GenericConverter<E>.named().fromJson(json['genericValue'] as int)
-    ..keyAnnotationFirst =
-        JsonConverterNamedCtor._fromJson(json['keyAnnotationFirst'] as int);
-}
+        Map<String, dynamic> json) =>
+    JsonConverterNamedCtor<E>()
+      ..value = const _DurationMillisecondConverter.named()
+          .fromJson(json['value'] as int)
+      ..genericValue =
+          _GenericConverter<E>.named().fromJson(json['genericValue'] as int)
+      ..keyAnnotationFirst =
+          JsonConverterNamedCtor._fromJson(json['keyAnnotationFirst'] as int);
 
 Map<String, dynamic> _$JsonConverterNamedCtorToJson<E>(
         JsonConverterNamedCtor<E> instance) =>
@@ -31,31 +30,30 @@ Map<String, dynamic> _$JsonConverterNamedCtorToJson<E>(
 @_DurationMillisecondConverter.named()
 @_GenericConverter.named()
 class JsonConverterNamedCtor<E> {
-  Duration value;
-  E genericValue;
+  late Duration value;
+  late E genericValue;
 
   // Field annotations have precedence over class annotations
   @JsonKey(fromJson: _fromJson, toJson: _toJson)
-  Duration keyAnnotationFirst;
+  late Duration keyAnnotationFirst;
 
-  static Duration _fromJson(int value) => null;
+  static Duration _fromJson(int value) => throw UnimplementedError();
 
   static int _toJson(Duration object) => 42;
 }
 
 @ShouldGenerate(r'''
 JsonConvertOnField<E> _$JsonConvertOnFieldFromJson<E>(
-    Map<String, dynamic> json) {
-  return JsonConvertOnField<E>()
-    ..annotatedField = const _DurationMillisecondConverter()
-        .fromJson(json['annotatedField'] as int)
-    ..annotatedWithNamedCtor = const _DurationMillisecondConverter.named()
-        .fromJson(json['annotatedWithNamedCtor'] as int)
-    ..classAnnotatedWithField =
-        _durationConverter.fromJson(json['classAnnotatedWithField'] as int)
-    ..genericValue =
-        _GenericConverter<E>().fromJson(json['genericValue'] as int);
-}
+        Map<String, dynamic> json) =>
+    JsonConvertOnField<E>()
+      ..annotatedField = const _DurationMillisecondConverter()
+          .fromJson(json['annotatedField'] as int)
+      ..annotatedWithNamedCtor = const _DurationMillisecondConverter.named()
+          .fromJson(json['annotatedWithNamedCtor'] as int)
+      ..classAnnotatedWithField =
+          _durationConverter.fromJson(json['classAnnotatedWithField'] as int)
+      ..genericValue =
+          _GenericConverter<E>().fromJson(json['genericValue'] as int);
 
 Map<String, dynamic> _$JsonConvertOnFieldToJson<E>(
         JsonConvertOnField<E> instance) =>
@@ -73,15 +71,15 @@ Map<String, dynamic> _$JsonConvertOnFieldToJson<E>(
 @_durationConverter
 class JsonConvertOnField<E> {
   @_DurationMillisecondConverter()
-  Duration annotatedField;
+  late Duration annotatedField;
 
   @_DurationMillisecondConverter.named()
-  Duration annotatedWithNamedCtor;
+  late Duration annotatedWithNamedCtor;
 
-  Duration classAnnotatedWithField;
+  late Duration classAnnotatedWithField;
 
   @_GenericConverter()
-  E genericValue;
+  late E genericValue;
 }
 
 class _GenericConverter<T> implements JsonConverter<T, int> {
@@ -90,7 +88,7 @@ class _GenericConverter<T> implements JsonConverter<T, int> {
   const _GenericConverter.named();
 
   @override
-  T fromJson(int json) => null;
+  T fromJson(int json) => throw UnimplementedError();
 
   @override
   int toJson(T object) => 0;
@@ -104,14 +102,14 @@ class _GenericConverter<T> implements JsonConverter<T, int> {
 @JsonSerializable()
 @_BadConverter()
 class JsonConverterWithBadTypeArg<T> {
-  T value;
+  late T value;
 }
 
 class _BadConverter<T, S> implements JsonConverter<S, int> {
   const _BadConverter();
 
   @override
-  S fromJson(int json) => null;
+  S fromJson(int json) => throw UnimplementedError();
 
   @override
   int toJson(S object) => 0;
@@ -125,7 +123,7 @@ class _BadConverter<T, S> implements JsonConverter<S, int> {
 @_durationConverter
 @_DurationMillisecondConverter()
 class JsonConverterDuplicateAnnotations {
-  Duration value;
+  late Duration value;
 }
 
 const _durationConverter = _DurationMillisecondConverter();
@@ -136,11 +134,10 @@ class _DurationMillisecondConverter implements JsonConverter<Duration, int> {
   const _DurationMillisecondConverter.named();
 
   @override
-  Duration fromJson(int json) =>
-      json == null ? null : Duration(milliseconds: json);
+  Duration fromJson(int json) => throw UnimplementedError();
 
   @override
-  int toJson(Duration object) => object?.inMilliseconds;
+  int toJson(Duration object) => throw UnimplementedError();
 }
 
 @ShouldThrow(
@@ -150,7 +147,7 @@ class _DurationMillisecondConverter implements JsonConverter<Duration, int> {
 @JsonSerializable()
 @_ConverterWithCtorParams(42)
 class JsonConverterCtorParams {
-  Duration value;
+  late Duration value;
 }
 
 class _ConverterWithCtorParams implements JsonConverter<Duration, int> {
@@ -159,7 +156,7 @@ class _ConverterWithCtorParams implements JsonConverter<Duration, int> {
   const _ConverterWithCtorParams(this.param);
 
   @override
-  Duration fromJson(int json) => null;
+  Duration fromJson(int json) => throw UnimplementedError();
 
   @override
   int toJson(Duration object) => 0;

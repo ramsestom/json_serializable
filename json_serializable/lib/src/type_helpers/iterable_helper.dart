@@ -4,6 +4,7 @@
 
 import 'package:analyzer/dart/element/type.dart';
 import 'package:source_gen/source_gen.dart' show TypeChecker;
+import 'package:source_helper/source_helper.dart';
 
 import '../constants.dart';
 import '../lambda_result.dart';
@@ -14,8 +15,11 @@ class IterableHelper extends TypeHelper<TypeHelperContextWithConfig> {
   const IterableHelper();
 
   @override
-  String serialize(DartType targetType, String expression,
-      TypeHelperContextWithConfig context) {
+  String? serialize(
+    DartType targetType,
+    String expression,
+    TypeHelperContextWithConfig context,
+  ) {
     if (!coreIterableTypeChecker.isAssignableFromType(targetType)) {
       return null;
     }
@@ -26,9 +30,9 @@ class IterableHelper extends TypeHelper<TypeHelperContextWithConfig> {
     // Although it's possible that child elements may be marked unsafe
 
     var isList = _coreListChecker.isAssignableFromType(targetType);
-    final subField = context.serialize(itemType, closureArg);
+    final subField = context.serialize(itemType, closureArg)!;
 
-    final optionalQuestion = context.nullable ? '?' : '';
+    var optionalQuestion = targetType.isNullableType ? '?' : '';
 
     // In the case of trivial JSON types (int, String, etc), `subField`
     // will be identical to `substitute` – so no explicit mapping is needed.
@@ -41,6 +45,9 @@ class IterableHelper extends TypeHelper<TypeHelperContextWithConfig> {
       // expression now represents an Iterable (even if it started as a List
       // ...resetting `isList` to `false`.
       isList = false;
+
+      // No need to include the optional question below – it was used here!
+      optionalQuestion = '';
     }
 
     if (!isList) {
@@ -52,8 +59,12 @@ class IterableHelper extends TypeHelper<TypeHelperContextWithConfig> {
   }
 
   @override
-  String deserialize(
-      DartType targetType, String expression, TypeHelperContext context) {
+  String? deserialize(
+    DartType targetType,
+    String expression,
+    TypeHelperContext context,
+    bool defaultProvided,
+  ) {
     if (!(coreIterableTypeChecker.isExactlyType(targetType) ||
         _coreListChecker.isExactlyType(targetType) ||
         _coreSetChecker.isExactlyType(targetType))) {
@@ -62,9 +73,15 @@ class IterableHelper extends TypeHelper<TypeHelperContextWithConfig> {
 
     final iterableGenericType = coreIterableGenericType(targetType);
 
-    final itemSubVal = context.deserialize(iterableGenericType, closureArg);
+    final itemSubVal = context.deserialize(iterableGenericType, closureArg)!;
 
-    var output = '$expression as List';
+    var output = '$expression as List<dynamic>';
+
+    final targetTypeIsNullable = defaultProvided || targetType.isNullableType;
+
+    if (targetTypeIsNullable) {
+      output += '?';
+    }
 
     // If `itemSubVal` is the same and it's not a Set, then we don't need to do
     // anything fancy
@@ -75,11 +92,13 @@ class IterableHelper extends TypeHelper<TypeHelperContextWithConfig> {
 
     output = '($output)';
 
-    final optionalQuestion = context.nullable ? '?' : '';
+    var optionalQuestion = targetTypeIsNullable ? '?' : '';
 
     if (closureArg != itemSubVal) {
       final lambda = LambdaResult.process(itemSubVal, closureArg);
       output += '$optionalQuestion.map($lambda)';
+      // No need to include the optional question below – it was used here!
+      optionalQuestion = '';
     }
 
     if (_coreListChecker.isExactlyType(targetType)) {
@@ -92,5 +111,5 @@ class IterableHelper extends TypeHelper<TypeHelperContextWithConfig> {
   }
 }
 
-final _coreListChecker = const TypeChecker.fromUrl('dart:core#List');
-final _coreSetChecker = const TypeChecker.fromUrl('dart:core#Set');
+const _coreListChecker = TypeChecker.fromUrl('dart:core#List');
+const _coreSetChecker = TypeChecker.fromUrl('dart:core#Set');

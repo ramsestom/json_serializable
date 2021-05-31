@@ -5,45 +5,43 @@
 import 'package:analyzer/dart/constant/value.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
-import 'package:json_annotation/json_annotation.dart';
-import 'package:json_serializable/src/method_config.dart';
+import 'package:source_helper/source_helper.dart';
+import 'method_config.dart';
 
 import 'helper_core.dart';
 import 'type_helper.dart';
+import 'type_helpers/config_types.dart';
 import 'type_helpers/convert_helper.dart';
 import 'unsupported_type_error.dart';
 import 'utils.dart';
 
-TypeHelperCtx typeHelperContext(HelperCore helperCore, FieldElement fieldElement, JsonKey key, MethodConfig methodconf) =>
-    TypeHelperCtx._(helperCore, fieldElement, key, methodconf);
+TypeHelperCtx typeHelperContext(HelperCore helperCore, FieldElement fieldElement, MethodConfig? methodconf) =>
+    TypeHelperCtx._(helperCore, fieldElement, methodconf);
 
 class TypeHelperCtx
     implements TypeHelperContextWithConfig, TypeHelperContextWithConvert {
   final HelperCore _helperCore;
-  final JsonKey _key;
-  final MethodConfig _methodconf;
+  final MethodConfig? _methodconf;
 
   @override
   final FieldElement fieldElement;
 
   @override
-  bool get nullable => _key.nullable;
-
-  @override
   ClassElement get classElement => _helperCore.element;
 
   @override
-  JsonSerializable get config => _helperCore.config;
-
-  MethodConfig get methodConfig => _methodconf;
-
-  TypeHelperCtx._(this._helperCore, this.fieldElement, this._key, this._methodconf);
+  ClassConfig get config => _helperCore.config;
 
   @override
-  ConvertData get serializeConvertData => _pairFromContext?.toJson;
+  MethodConfig? get methodConfig => _methodconf;
+
+  TypeHelperCtx._(this._helperCore, this.fieldElement, this._methodconf);
 
   @override
-  ConvertData get deserializeConvertData => _pairFromContext?.fromJson;
+  ConvertData? get serializeConvertData => _pairFromContext.toJson;
+
+  @override
+  ConvertData? get deserializeConvertData => _pairFromContext.fromJson;
 
   _ConvertPair get _pairFromContext => _ConvertPair(fieldElement);
 
@@ -53,31 +51,44 @@ class TypeHelperCtx
   }
 
   @override
-  Object serialize(DartType targetType, String expression) => _run(
-      targetType,
-      expression,
-      (TypeHelper th) => th.serialize(targetType, expression, this));
+  Object? serialize(DartType targetType, String expression) => _run(
+        targetType,
+        expression,
+        (TypeHelper th) => th.serialize(targetType, expression, this),
+      );
 
   @override
-  Object deserialize(DartType targetType, String expression) => _run(
-      targetType,
-      expression,
-      (TypeHelper th) => th.deserialize(targetType, expression, this));
+  Object? deserialize(
+    DartType targetType,
+    String expression, {
+    bool defaultProvided = false,
+  }) =>
+      _run(
+        targetType,
+        expression,
+        (TypeHelper th) => th.deserialize(
+          targetType,
+          expression,
+          this,
+          defaultProvided,
+        ),
+      );
 
-  Object _run(DartType targetType, String expression,
-          Object Function(TypeHelper) invoke) =>
-      _helperCore.allTypeHelpers.map(invoke).firstWhere((r) => r != null,
-          orElse: () => throw UnsupportedTypeError(
-              targetType, expression, _notSupportedWithTypeHelpersMsg));
+  Object _run(
+    DartType targetType,
+    String expression,
+    Object? Function(TypeHelper) invoke,
+  ) =>
+      _helperCore.allTypeHelpers.map(invoke).firstWhere(
+            (r) => r != null,
+            orElse: () => throw UnsupportedTypeError(targetType, expression),
+          ) as Object;
 }
-
-final _notSupportedWithTypeHelpersMsg =
-    'None of the provided `TypeHelper` instances support the defined type.';
 
 class _ConvertPair {
   static final _expando = Expando<_ConvertPair>();
 
-  final ConvertData fromJson, toJson;
+  final ConvertData? fromJson, toJson;
 
   _ConvertPair._(this.fromJson, this.toJson);
 
@@ -86,11 +97,11 @@ class _ConvertPair {
 
     if (pair == null) {
       final obj = jsonKeyAnnotation(element);
-      if (obj == null) {
+      if (obj.isNull) {
         pair = _ConvertPair._(null, null);
       } else {
-        final toJson = _convertData(obj, element, false);
-        final fromJson = _convertData(obj, element, true);
+        final toJson = _convertData(obj.objectValue, element, false);
+        final fromJson = _convertData(obj.objectValue, element, true);
         pair = _ConvertPair._(fromJson, toJson);
       }
       _expando[element] = pair;
@@ -99,17 +110,15 @@ class _ConvertPair {
   }
 }
 
-ConvertData _convertData(DartObject obj, FieldElement element, bool isFrom) {
+ConvertData? _convertData(DartObject obj, FieldElement element, bool isFrom) {
   final paramName = isFrom ? 'fromJson' : 'toJson';
   final objectValue = obj.getField(paramName);
 
-  //print("$paramName \n $obj \n $element \n $objectValue \n\n");
-
-  if (objectValue.isNull) {
+  if (objectValue == null || objectValue.isNull) {
     return null;
   }
 
-  final executableElement = objectValue.toFunctionValue();
+  final executableElement = objectValue.toFunctionValue()!;
 
   if (executableElement.parameters.isEmpty ||
       executableElement.parameters.first.isNamed ||
@@ -117,11 +126,16 @@ ConvertData _convertData(DartObject obj, FieldElement element, bool isFrom) {
     throwUnsupported(
         element,
         'The `$paramName` function `${executableElement.name}` must have one '
-        'positional paramater.');
+        'positional parameter.');
   }
+
+  var nullableToAllowDefault = false;
 
   final argType = executableElement.parameters.first.type;
   if (isFrom) {
+    final hasDefaultValue =
+        !jsonKeyAnnotation(element).read('defaultValue').isNull;
+
     final returnType = executableElement.returnType;
 
     if (returnType is TypeParameterType) {
@@ -129,14 +143,20 @@ ConvertData _convertData(DartObject obj, FieldElement element, bool isFrom) {
       // to the `fromJson` function.
       // TODO: consider adding error checking here if there is confusion.
     } else if (!returnType.isAssignableTo(element.type)) {
-      final returnTypeCode = typeToCode(returnType);
-      final elementTypeCode = typeToCode(element.type);
-      throwUnsupported(
-          element,
-          'The `$paramName` function `${executableElement.name}` return type '
-          '`$returnTypeCode` is not compatible with field type '
-          '`$elementTypeCode`.');
+      if (returnType.promoteNonNullable().isAssignableTo(element.type) &&
+          hasDefaultValue) {
+        // noop
+      } else {
+        final returnTypeCode = typeToCode(returnType);
+        final elementTypeCode = typeToCode(element.type);
+        throwUnsupported(
+            element,
+            'The `$paramName` function `${executableElement.name}` return type '
+            '`$returnTypeCode` is not compatible with field type '
+            '`$elementTypeCode`.');
+      }
     }
+    nullableToAllowDefault = hasDefaultValue && returnType.isNullableType;
   } else {
     if (argType is TypeParameterType) {
       // We keep things simple in this case. We rely on inferred type arguments
@@ -159,5 +179,9 @@ ConvertData _convertData(DartObject obj, FieldElement element, bool isFrom) {
     name = '${executableElement.enclosingElement.name}.$name';
   }
 
-  return ConvertData(name, argType);
+  return ConvertData(
+    name,
+    argType,
+    nullableToAllowDefault: nullableToAllowDefault,
+  );
 }

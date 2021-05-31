@@ -5,11 +5,12 @@
 import 'package:analyzer/dart/constant/value.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
+import 'package:collection/collection.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:source_gen/source_gen.dart';
+import 'package:source_helper/source_helper.dart';
 
 import '../helper_core.dart';
-import '../json_key_utils.dart';
 import '../lambda_result.dart';
 import '../shared_checkers.dart';
 import '../type_helper.dart';
@@ -20,30 +21,33 @@ class JsonConverterHelper extends TypeHelper {
   const JsonConverterHelper();
 
   @override
-  Object serialize(
-      DartType targetType, String expression, TypeHelperContext context) {
+  Object? serialize(
+    DartType targetType,
+    String expression,
+    TypeHelperContext context,
+  ) {
     final converter = _typeConverter(targetType, context);
 
     if (converter == null) {
       return null;
     }
 
-    logFieldWithConversionFunction(context.fieldElement);
-
     return LambdaResult(expression, '${converter.accessString}.toJson');
   }
 
   @override
-  Object deserialize(
-      DartType targetType, String expression, TypeHelperContext context) {
+  Object? deserialize(
+    DartType targetType,
+    String expression,
+    TypeHelperContext context,
+    bool defaultProvided,
+  ) {
     final converter = _typeConverter(targetType, context);
     if (converter == null) {
       return null;
     }
 
     final asContent = asStatement(converter.jsonType);
-
-    logFieldWithConversionFunction(context.fieldElement);
 
     return LambdaResult(
         '$expression$asContent', '${converter.accessString}.fromJson');
@@ -54,13 +58,18 @@ class _JsonConvertData {
   final String accessString;
   final DartType jsonType;
 
-  _JsonConvertData.className(String className, String accessor, this.jsonType)
-      : accessString = 'const $className${_withAccessor(accessor)}()';
+  _JsonConvertData.className(
+    String className,
+    String accessor,
+    this.jsonType,
+  ) : accessString = 'const $className${_withAccessor(accessor)}()';
 
   _JsonConvertData.genericClass(
-      String className, String genericTypeArg, String accessor, this.jsonType)
-      : accessString =
-            '$className<$genericTypeArg>${_withAccessor(accessor)}()';
+    String className,
+    String genericTypeArg,
+    String accessor,
+    this.jsonType,
+  ) : accessString = '$className<$genericTypeArg>${_withAccessor(accessor)}()';
 
   _JsonConvertData.propertyAccess(this.accessString, this.jsonType);
 
@@ -68,10 +77,10 @@ class _JsonConvertData {
       accessor.isEmpty ? '' : '.$accessor';
 }
 
-_JsonConvertData _typeConverter(DartType targetType, TypeHelperContext ctx) {
+_JsonConvertData? _typeConverter(DartType targetType, TypeHelperContext ctx) {
   List<_ConverterMatch> converterMatches(List<ElementAnnotation> items) => items
       .map((annotation) => _compatibleMatch(targetType, annotation))
-      .where((dt) => dt != null)
+      .whereType<_ConverterMatch>()
       .toList();
 
   var matchingAnnotations = converterMatches(ctx.fieldElement.metadata);
@@ -88,8 +97,10 @@ _JsonConvertData _typeConverter(DartType targetType, TypeHelperContext ctx) {
   return _typeConverterFrom(matchingAnnotations, targetType);
 }
 
-_JsonConvertData _typeConverterFrom(
-    List<_ConverterMatch> matchingAnnotations, DartType targetType) {
+_JsonConvertData? _typeConverterFrom(
+  List<_ConverterMatch> matchingAnnotations,
+  DartType targetType,
+) {
   if (matchingAnnotations.isEmpty) {
     return null;
   }
@@ -127,15 +138,15 @@ _JsonConvertData _typeConverterFrom(
 
   if (match.genericTypeArg != null) {
     return _JsonConvertData.genericClass(
-      match.annotation.type.element.name,
-      match.genericTypeArg,
+      match.annotation.type!.element!.name!,
+      match.genericTypeArg!,
       reviver.accessor,
       match.jsonType,
     );
   }
 
   return _JsonConvertData.className(
-    match.annotation.type.element.name,
+    match.annotation.type!.element!.name!,
     reviver.accessor,
     match.jsonType,
   );
@@ -145,21 +156,28 @@ class _ConverterMatch {
   final DartObject annotation;
   final DartType jsonType;
   final ElementAnnotation elementAnnotation;
-  final String genericTypeArg;
+  final String? genericTypeArg;
 
-  _ConverterMatch(this.elementAnnotation, this.annotation, this.jsonType,
-      this.genericTypeArg);
+  _ConverterMatch(
+    this.elementAnnotation,
+    this.annotation,
+    this.jsonType,
+    this.genericTypeArg,
+  );
 }
 
-_ConverterMatch _compatibleMatch(
-    DartType targetType, ElementAnnotation annotation) {
-  final constantValue = annotation.computeConstantValue();
+_ConverterMatch? _compatibleMatch(
+  DartType targetType,
+  ElementAnnotation annotation,
+) {
+  final constantValue = annotation.computeConstantValue()!;
 
-  final converterClassElement = constantValue.type.element as ClassElement;
+  final converterClassElement = constantValue.type!.element as ClassElement;
 
-  final jsonConverterSuper = converterClassElement.allSupertypes.singleWhere(
-      (e) => e is InterfaceType && _jsonConverterChecker.isExactly(e.element),
-      orElse: () => null);
+  final jsonConverterSuper =
+      converterClassElement.allSupertypes.singleWhereOrNull(
+    (e) => e is InterfaceType && _jsonConverterChecker.isExactly(e.element),
+  );
 
   if (jsonConverterSuper == null) {
     return null;
@@ -190,7 +208,7 @@ _ConverterMatch _compatibleMatch(
       annotation,
       constantValue,
       jsonConverterSuper.typeArguments[1],
-      targetType.element.name,
+      '${targetType.element.name}${targetType.isNullableType ? '?' : ''}',
     );
   }
 

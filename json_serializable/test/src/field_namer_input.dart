@@ -9,10 +9,10 @@ Map<String, dynamic> _$FieldNamerNoneToJson(FieldNamerNone instance) =>
 ''')
 @JsonSerializable(fieldRename: FieldRename.none, createFactory: false)
 class FieldNamerNone {
-  String theField;
+  late String theField;
 
   @JsonKey(name: 'NAME_OVERRIDE')
-  String nameOverride;
+  late String nameOverride;
 }
 
 @ShouldGenerate(r'''
@@ -24,10 +24,10 @@ Map<String, dynamic> _$FieldNamerKebabToJson(FieldNamerKebab instance) =>
 ''')
 @JsonSerializable(fieldRename: FieldRename.kebab, createFactory: false)
 class FieldNamerKebab {
-  String theField;
+  late String theField;
 
   @JsonKey(name: 'NAME_OVERRIDE')
-  String nameOverride;
+  late String nameOverride;
 }
 
 @ShouldGenerate(r'''
@@ -39,10 +39,10 @@ Map<String, dynamic> _$FieldNamerPascalToJson(FieldNamerPascal instance) =>
 ''')
 @JsonSerializable(fieldRename: FieldRename.pascal, createFactory: false)
 class FieldNamerPascal {
-  String theField;
+  late String theField;
 
   @JsonKey(name: 'NAME_OVERRIDE')
-  String nameOverride;
+  late String nameOverride;
 }
 
 @ShouldGenerate(r'''
@@ -54,8 +54,8 @@ Map<String, dynamic> _$FieldNamerSnakeToJson(FieldNamerSnake instance) =>
 ''')
 @JsonSerializable(fieldRename: FieldRename.snake, createFactory: false)
 class FieldNamerSnake {
-  String theField;
+  late String theField;
 
   @JsonKey(name: 'NAME_OVERRIDE')
-  String nameOverride;
+  late String nameOverride;
 }

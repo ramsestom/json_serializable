@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:test/test.dart';
@@ -14,15 +15,19 @@ void main() {
 void _expect(String fileName) {
   test(fileName, () {
     final file = File(fileName);
-    expect(file.readAsStringSync(), contains(_pubspecContent));
+
+    expect(
+      file.readAsStringSync(),
+      stringContainsInOrder(LineSplitter.split(_pubspecContent).toList()),
+    );
   });
 }
 
-final _pubspecContent = r'''
+const _pubspecContent = r'''
 dependencies:
-  json_annotation: ^3.0.0
+  json_annotation: ^4.0.0
 
 dev_dependencies:
-  build_runner: ^1.0.0
-  json_serializable: ^3.2.0
+  build_runner: ^2.0.0
+  json_serializable: ^4.0.0
 ''';

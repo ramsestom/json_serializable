@@ -112,8 +112,9 @@ void main() {
         config[entry.key] = entry.value;
 
         final lastLine = entry.key == 'field_rename'
-            ? '`42` is not one of the supported values: none, kebab, snake, pascal'
-            : "type 'int' is not a subtype of type 'bool' in type cast";
+            ? '`42` is not one of the supported values: none, kebab, snake, '
+                'pascal'
+            : "type 'int' is not a subtype of type 'bool?' in type cast";
 
         final matcher = isA<StateError>().having(
           (v) => v.message,
@@ -138,7 +139,7 @@ const _invalidConfig = {
   'disallow_unrecognized_keys': 42,
   'explicit_to_json': 42,
   'field_rename': 42,
+  'generic_argument_factories': 42,
   'ignore_unannotated': 42,
   'include_if_null': 42,
-  'nullable': 42,
 };

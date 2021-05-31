@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+// @dart=2.9
+
 @TestOn('vm')
 import 'dart:convert';
 import 'dart:io';
@@ -25,13 +27,18 @@ void main() {
     for (final filePath in _tests) {
       test(p.basenameWithoutExtension(filePath), () {
         final content = File(filePath).readAsStringSync();
-        final yamlContent = loadYaml(content, sourceUrl: filePath) as YamlMap;
+        final yamlContent = loadYaml(
+          content,
+          sourceUrl: Uri.file(filePath),
+        ) as YamlMap;
 
         try {
           final config = Config.fromJson(yamlContent);
           expect(config, isNotNull);
         } on CheckedFromJsonException catch (e) {
-          print(toParsedYamlException(e).formattedMessage);
+          if (e.message != null) {
+            print(toParsedYamlException(e).formattedMessage);
+          }
           rethrow;
         }
       });
@@ -43,7 +50,7 @@ void main() {
     for (final entry in _badConfigs.entries) {
       test('${index++}', () {
         final yamlContent =
-            loadYaml(entry.key, sourceUrl: 'file.yaml') as YamlMap;
+            loadYaml(entry.key, sourceUrl: Uri.file('file.yaml')) as YamlMap;
 
         expect(yamlContent, isNotNull);
         printOnFailure(entry.key);
@@ -62,13 +69,13 @@ void main() {
   });
 }
 
-final _badConfigs = const {
+const _badConfigs = {
   r'''
 builders:
 - a
 - b
 ''': r'''
-line 2, column 1 of file.yaml: Unsupported value for "builders".
+line 2, column 1 of file.yaml: Unsupported value for "builders". type 'YamlList' is not a subtype of type 'Map<dynamic, dynamic>' in type cast
   ╷
 2 │ ┌ - a
 3 │ └ - b
@@ -88,7 +95,7 @@ builders:
   a:
     target: 42
   ''': r'''
-line 3, column 13 of file.yaml: Unsupported value for "target".
+line 3, column 13 of file.yaml: Unsupported value for "target". type 'int' is not a subtype of type 'String?' in type cast
   ╷
 3 │     target: 42
   │             ^^
@@ -153,8 +160,6 @@ line 4, column 21 of file.yaml: Unsupported value for "configLocation". Illegal 
   ╵'''
 };
 
-final throwsCastError = throwsA(isCastError);
-
 T roundTripObject<T>(
   T object,
   T Function(Map<String, dynamic> json) factory, {
@@ -178,7 +183,8 @@ T roundTripObject<T>(
 String loudEncode(Object object) {
   try {
     return const JsonEncoder.withIndent(' ').convert(object);
-  } on JsonUnsupportedObjectError catch (e) {
+  } on JsonUnsupportedObjectError catch (e) // ignore: avoid_catching_errors
+  {
     var error = e;
     do {
       final cause = error.cause;

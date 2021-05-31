@@ -6,22 +6,25 @@ import 'package:analyzer/dart/constant/value.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:json_annotation/json_annotation.dart';
-import 'package:meta/meta.dart' show alwaysThrows;
 import 'package:source_gen/source_gen.dart';
 
 import 'helper_core.dart';
+import 'type_helpers/config_types.dart';
 
-final _jsonKeyChecker = const TypeChecker.fromRuntime(JsonKey);
+const _jsonKeyChecker = TypeChecker.fromRuntime(JsonKey);
 
-DartObject jsonKeyAnnotation(FieldElement element) =>
-    _jsonKeyChecker.firstAnnotationOfExact(element) ??
+DartObject? _jsonKeyAnnotation(FieldElement element) =>
+    _jsonKeyChecker.firstAnnotationOf(element) ??
     (element.getter == null
         ? null
-        : _jsonKeyChecker.firstAnnotationOfExact(element.getter));
+        : _jsonKeyChecker.firstAnnotationOf(element.getter!));
+
+ConstantReader jsonKeyAnnotation(FieldElement element) =>
+    ConstantReader(_jsonKeyAnnotation(element));
 
 /// Returns `true` if [element] is annotated with [JsonKey].
 bool hasJsonKeyAnnotation(FieldElement element) =>
-    jsonKeyAnnotation(element) != null;
+    _jsonKeyAnnotation(element) != null;
 
 final _upperCase = RegExp('[A-Z]');
 
@@ -39,7 +42,7 @@ String pascalCase(String input) {
 
 String _fixCase(String input, String separator) =>
     input.replaceAllMapped(_upperCase, (match) {
-      var lower = match.group(0).toLowerCase();
+      var lower = match.group(0)!.toLowerCase();
 
       if (match.start > 0) {
         lower = '$separator$lower';
@@ -48,13 +51,14 @@ String _fixCase(String input, String separator) =>
       return lower;
     });
 
-@alwaysThrows
-void throwUnsupported(FieldElement element, String message) =>
+String nonPrivateName(String input) => input.replaceFirst(RegExp(r'^_*'), '');
+
+Never throwUnsupported(FieldElement element, String message) =>
     throw InvalidGenerationSourceError(
         'Error with `@JsonKey` on `${element.name}`. $message',
         element: element);
 
-FieldRename _fromDartObject(ConstantReader reader) => reader.isNull
+FieldRename? _fromDartObject(ConstantReader reader) => reader.isNull
     ? null
     : enumValueForDartObject(
         reader.objectValue,
@@ -63,27 +67,27 @@ FieldRename _fromDartObject(ConstantReader reader) => reader.isNull
       );
 
 T enumValueForDartObject<T>(
-        DartObject source, List<T> items, String Function(T) name) =>
-    items.singleWhere(
-      (v) => source.getField(name(v)) != null,
-      // TODO: remove once pkg:analyzer < 0.35.0 is no longer supported
-      orElse: () => items[source.getField('index').toIntValue()],
-    );
+  DartObject source,
+  List<T> items,
+  String Function(T) name,
+) =>
+    items.singleWhere((v) => source.getField(name(v)) != null);
 
 /// Return an instance of [JsonSerializable] corresponding to a the provided
 /// [reader].
 JsonSerializable _valueForAnnotation(ConstantReader reader) => JsonSerializable(
-      anyMap: reader.read('anyMap').literalValue as bool,
-      checked: reader.read('checked').literalValue as bool,
-      createFactory: reader.read('createFactory').literalValue as bool,
-      createToJson: reader.read('createToJson').literalValue as bool,
+      anyMap: reader.read('anyMap').literalValue as bool?,
+      checked: reader.read('checked').literalValue as bool?,
+      createFactory: reader.read('createFactory').literalValue as bool?,
+      createToJson: reader.read('createToJson').literalValue as bool?,
       disallowUnrecognizedKeys:
-          reader.read('disallowUnrecognizedKeys').literalValue as bool,
-      explicitToJson: reader.read('explicitToJson').literalValue as bool,
+          reader.read('disallowUnrecognizedKeys').literalValue as bool?,
+      explicitToJson: reader.read('explicitToJson').literalValue as bool?,
       fieldRename: _fromDartObject(reader.read('fieldRename')),
-      ignoreUnannotated: reader.read('ignoreUnannotated').literalValue as bool,
-      includeIfNull: reader.read('includeIfNull').literalValue as bool,
-      nullable: reader.read('nullable').literalValue as bool,
+      genericArgumentFactories:
+          reader.read('genericArgumentFactories').literalValue as bool?,
+      ignoreUnannotated: reader.read('ignoreUnannotated').literalValue as bool?,
+      includeIfNull: reader.read('includeIfNull').literalValue as bool?,
     );
 
 /// Returns a [JsonSerializable] with values from the [JsonSerializable]
@@ -91,10 +95,26 @@ JsonSerializable _valueForAnnotation(ConstantReader reader) => JsonSerializable(
 ///
 /// For fields that are not defined in [JsonSerializable] or `null` in [reader],
 /// use the values in [config].
-JsonSerializable mergeConfig(JsonSerializable config, ConstantReader reader) {
+///
+/// Note: if [JsonSerializable.genericArgumentFactories] is `false` for [reader]
+/// and `true` for [config], the corresponding field in the return value will
+/// only be `true` if [classElement] has type parameters.
+ClassConfig mergeConfig(
+  ClassConfig config,
+  ConstantReader reader, {
+  required ClassElement classElement,
+}) {
   final annotation = _valueForAnnotation(reader);
+  assert(config.ctorParamDefaults.isEmpty);
 
-  return JsonSerializable(
+  final defaultCtor = unnamedConstructorOrError(classElement);
+
+  final paramDefaultValueMap = Map<String, String>.fromEntries(defaultCtor
+      .parameters
+      .where((element) => element.hasDefaultValue)
+      .map((e) => MapEntry(e.name, e.defaultValueCode!)));
+
+  return ClassConfig(
     anyMap: annotation.anyMap ?? config.anyMap,
     checked: annotation.checked ?? config.checked,
     createFactory: annotation.createFactory ?? config.createFactory,
@@ -103,14 +123,29 @@ JsonSerializable mergeConfig(JsonSerializable config, ConstantReader reader) {
         annotation.disallowUnrecognizedKeys ?? config.disallowUnrecognizedKeys,
     explicitToJson: annotation.explicitToJson ?? config.explicitToJson,
     fieldRename: annotation.fieldRename ?? config.fieldRename,
+    genericArgumentFactories: annotation.genericArgumentFactories ??
+        (classElement.typeParameters.isNotEmpty &&
+            config.genericArgumentFactories),
     ignoreUnannotated: annotation.ignoreUnannotated ?? config.ignoreUnannotated,
     includeIfNull: annotation.includeIfNull ?? config.includeIfNull,
-    nullable: annotation.nullable ?? config.nullable,
+    ctorParamDefaults: paramDefaultValueMap,
   );
 }
 
-bool isEnum(DartType targetType) =>
-    targetType is InterfaceType && targetType.element.isEnum;
+ConstructorElement unnamedConstructorOrError(ClassElement classElement) {
+  final className = classElement.name;
+
+  final ctor = classElement.unnamedConstructor;
+  if (ctor == null) {
+    // TODO: support using another ctor - google/json_serializable.dart#50
+    throw InvalidGenerationSourceError(
+      'The class `$className` has no default constructor.',
+      element: classElement,
+    );
+  }
+
+  return ctor;
+}
 
 final _enumMapExpando = Expando<Map<FieldElement, dynamic>>();
 
@@ -123,7 +158,7 @@ final _enumMapExpando = Expando<Map<FieldElement, dynamic>>();
 /// used if it's set and not `null`.
 ///
 /// If [targetType] is not an enum, `null` is returned.
-Map<FieldElement, dynamic> enumFieldsMap(DartType targetType) {
+Map<FieldElement, dynamic>? enumFieldsMap(DartType targetType) {
   MapEntry<FieldElement, dynamic> _generateEntry(FieldElement fe) {
     final annotation =
         const TypeChecker.fromRuntime(JsonValue).firstAnnotationOfExact(fe);
@@ -165,94 +200,10 @@ Map<FieldElement, dynamic> enumFieldsMap(DartType targetType) {
 /// with its values.
 ///
 /// Otherwise, `null`.
-Iterable<FieldElement> iterateEnumFields(DartType targetType) =>
+Iterable<FieldElement>? iterateEnumFields(DartType targetType) =>
     enumFieldsMap(targetType)?.keys;
 
-/// Returns a quoted String literal for [value] that can be used in generated
-/// Dart code.
-String escapeDartString(String value) {
-  var hasSingleQuote = false;
-  var hasDoubleQuote = false;
-  var hasDollar = false;
-  var canBeRaw = true;
-
-  value = value.replaceAllMapped(_escapeRegExp, (match) {
-    final value = match[0];
-    if (value == "'") {
-      hasSingleQuote = true;
-      return value;
-    } else if (value == '"') {
-      hasDoubleQuote = true;
-      return value;
-    } else if (value == r'$') {
-      hasDollar = true;
-      return value;
-    }
-
-    canBeRaw = false;
-    return _escapeMap[value] ?? _getHexLiteral(value);
-  });
-
-  if (!hasDollar) {
-    if (hasSingleQuote) {
-      if (!hasDoubleQuote) {
-        return '"$value"';
-      }
-      // something
-    } else {
-      // trivial!
-      return "'$value'";
-    }
-  }
-
-  if (hasDollar && canBeRaw) {
-    if (hasSingleQuote) {
-      if (!hasDoubleQuote) {
-        // quote it with single quotes!
-        return 'r"$value"';
-      }
-    } else {
-      // quote it with single quotes!
-      return "r'$value'";
-    }
-  }
-
-  // The only safe way to wrap the content is to escape all of the
-  // problematic characters - `$`, `'`, and `"`
-  final string = value.replaceAll(_dollarQuoteRegexp, r'\');
-  return "'$string'";
-}
-
-final _dollarQuoteRegexp = RegExp(r"""(?=[$'"])""");
-
-/// A [Map] between whitespace characters & `\` and their escape sequences.
-const _escapeMap = {
-  '\b': r'\b', // 08 - backspace
-  '\t': r'\t', // 09 - tab
-  '\n': r'\n', // 0A - new line
-  '\v': r'\v', // 0B - vertical tab
-  '\f': r'\f', // 0C - form feed
-  '\r': r'\r', // 0D - carriage return
-  '\x7F': r'\x7F', // delete
-  r'\': r'\\' // backslash
-};
-
-final _escapeMapRegexp = _escapeMap.keys.map(_getHexLiteral).join();
-
-/// A [RegExp] that matches whitespace characters that should be escaped and
-/// single-quote, double-quote, and `$`
-final _escapeRegExp = RegExp('[\$\'"\\x00-\\x07\\x0E-\\x1F$_escapeMapRegexp]');
-
-/// Given single-character string, return the hex-escaped equivalent.
-String _getHexLiteral(String input) {
-  final rune = input.runes.single;
-  final value = rune.toRadixString(16).toUpperCase().padLeft(2, '0');
-  return '\\x$value';
-}
-
 extension DartTypeExtension on DartType {
-  bool isAssignableTo(DartType other) =>
-      // If the library is `null`, treat it like dynamic => `true`
-      element.library == null ||
-      element.library.typeSystem.isAssignableTo(this, other);
+  DartType promoteNonNullable() =>
+      element?.library?.typeSystem.promoteToNonNull(this) ?? this;
 }

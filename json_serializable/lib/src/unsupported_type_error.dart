@@ -8,10 +8,10 @@ import 'package:analyzer/dart/element/type.dart';
 /// [reason].
 class UnsupportedTypeError extends Error {
   final DartType type;
-  final String reason;
+  final String? reason;
 
   /// Not currently accesses. Will likely be removed in a future release.
   final String expression;
 
-  UnsupportedTypeError(this.type, this.expression, this.reason);
+  UnsupportedTypeError(this.type, this.expression, [this.reason]);
 }

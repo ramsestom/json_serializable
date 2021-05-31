@@ -3,10 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:analyzer/dart/element/element.dart';
-
-// ignore: implementation_imports
-import 'package:analyzer/src/dart/element/inheritance_manager3.dart'
-    show InheritanceManager3;
+import 'package:analyzer/src/dart/element/inheritance_manager3.dart' // ignore: implementation_imports
+    show
+        InheritanceManager3;
 import 'package:source_gen/source_gen.dart';
 
 import 'utils.dart';
@@ -18,9 +17,9 @@ class _FieldSet implements Comparable<_FieldSet> {
   _FieldSet._(this.field, this.sortField)
       : assert(field.name == sortField.name);
 
-  factory _FieldSet(FieldElement classField, FieldElement superField) {
+  factory _FieldSet(FieldElement? classField, FieldElement? superField) {
     // At least one of these will != null, perhaps both.
-    final fields = [classField, superField].where((fe) => fe != null).toList();
+    final fields = [classField, superField].whereType<FieldElement>().toList();
 
     // Prefer the class field over the inherited field when sorting.
     final sortField = fields.first;
@@ -37,10 +36,8 @@ class _FieldSet implements Comparable<_FieldSet> {
   int compareTo(_FieldSet other) => _sortByLocation(sortField, other.sortField);
 
   static int _sortByLocation(FieldElement a, FieldElement b) {
-    final checkerA = TypeChecker.fromStatic(
-        // TODO: remove `ignore` when min pkg:analyzer >= 0.38.0
-        // ignore: unnecessary_cast
-        (a.enclosingElement as ClassElement).thisType);
+    final checkerA =
+        TypeChecker.fromStatic((a.enclosingElement as ClassElement).thisType);
 
     if (!checkerA.isExactly(b.enclosingElement)) {
       // in this case, you want to prioritize the enclosingElement that is more
@@ -50,10 +47,8 @@ class _FieldSet implements Comparable<_FieldSet> {
         return -1;
       }
 
-      final checkerB = TypeChecker.fromStatic(
-          // TODO: remove `ignore` when min pkg:analyzer >= 0.38.0
-          // ignore: unnecessary_cast
-          (b.enclosingElement as ClassElement).thisType);
+      final checkerB =
+          TypeChecker.fromStatic((b.enclosingElement as ClassElement).thisType);
 
       if (checkerB.isAssignableFrom(a.enclosingElement)) {
         return 1;
@@ -63,9 +58,9 @@ class _FieldSet implements Comparable<_FieldSet> {
     /// Returns the offset of given field/property in its source file – with a
     /// preference for the getter if it's defined.
     int _offsetFor(FieldElement e) {
-      if (e.getter != null && e.getter.nameOffset != e.nameOffset) {
+      if (e.getter != null && e.getter!.nameOffset != e.nameOffset) {
         assert(e.nameOffset == -1);
-        return e.getter.nameOffset;
+        return e.getter!.nameOffset;
       }
       return e.nameOffset;
     }
@@ -86,7 +81,7 @@ Iterable<FieldElement> createSortedFieldSet(ClassElement element) {
   final inheritedFields = <String, FieldElement>{};
   final manager = InheritanceManager3();
 
-  for (final v in manager.getInheritedConcreteMap(element.thisType).values) {
+  for (final v in manager.getInheritedConcreteMap2(element).values) {
     assert(v is! FieldElement);
     if (_dartCoreObjectChecker.isExactly(v.enclosingElement)) {
       continue;
@@ -106,10 +101,8 @@ Iterable<FieldElement> createSortedFieldSet(ClassElement element) {
 
   final fields = allFields
       .map((e) => _FieldSet(elementInstanceFields[e], inheritedFields[e]))
-      .toList();
-
-  // Sort the fields using the `compare` implementation in _FieldSet
-  fields.sort();
+      .toList()
+        ..sort();
 
   return fields.map((fs) => fs.field).toList();
 }
